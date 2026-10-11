@@ -83,13 +83,21 @@
       return true;
     },
 
+    // 다음에 이 스테이지를 클리어하면 받을 물약 수 (첫 클리어는 원래 보상, 반복 클리어는 줄어든 보상)
+    rewardFor(stage) {
+      if (!this.isCleared(stage.id)) return stage.reward;
+      const c = MR.CONFIG;
+      return Math.max(c.REPEAT_REWARD_MIN, stage.reward - c.REPEAT_REWARD_PENALTY);
+    },
+
     recordClear(stage) {
       const wasUnlocked = this.isLevelUpUnlocked();
       const firstClear = !this.isCleared(stage.id);
+      const reward = this.rewardFor(stage);
       this.state.cleared[stage.id] = true;
-      this.state.potions += stage.reward;
+      this.state.potions += reward;
       this.save();
-      return { reward: stage.reward, firstClear, levelUpJustUnlocked: !wasUnlocked && this.isLevelUpUnlocked() };
+      return { reward, firstClear, levelUpJustUnlocked: !wasUnlocked && this.isLevelUpUnlocked() };
     },
   };
 })((globalThis.MR = globalThis.MR || {}));

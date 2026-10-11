@@ -25,6 +25,10 @@
       return 1 + Math.floor(level / 3);
     },
 
+    // 이미 클리어한 스테이지를 다시 클리어하면 물약 보상이 줄어든다 (최소 REPEAT_REWARD_MIN 개)
+    REPEAT_REWARD_PENALTY: 4,
+    REPEAT_REWARD_MIN: 1,
+
     // 몬스터 스탯 = 기본 스탯 × (1 + ENEMY_SCALE × (스테이지 레벨 - 1))
     ENEMY_SCALE: 0.35,
 

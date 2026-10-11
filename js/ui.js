@@ -101,7 +101,7 @@
           ${st.boss ? '<span class="boss-tag">BOSS</span>' : ''}
           <span class="stage-id">${st.id}</span>
           <span class="stage-enemies">${unlocked ? enemies : '🔒'}</span>
-          <span class="stage-meta">${cleared ? '✓ 클리어' : unlocked ? `🧪 ${st.reward}` : '잠김'}</span>
+          <span class="stage-meta">${cleared ? `✓ 클리어 · 🧪 ${P().rewardFor(st)}` : unlocked ? `🧪 ${st.reward}` : '잠김'}</span>
         </button>`;
     }).join('');
 
@@ -481,7 +481,7 @@
       const r = P().recordClear(stage);
       const hasNext = currentStageIndex + 1 < MR.STAGES.length;
       body = `
-        <p>경험치 물약 <b>🧪 +${r.reward}</b> (보유 ${P().state.potions})</p>
+        <p>경험치 물약 <b>🧪 +${r.reward}</b> (보유 ${P().state.potions})${r.firstClear ? '' : '<br><small class="repeat-note">반복 클리어 보상</small>'}</p>
         ${r.levelUpJustUnlocked ? '<p class="unlock">🎉 레벨업 기능이 열렸어요! 「파티 · 레벨업」에서 캐릭터를 강화하세요.</p>' : ''}`;
       buttons = `
         ${hasNext ? '<button class="btn primary" data-act="next">다음 스테이지</button>' : ''}

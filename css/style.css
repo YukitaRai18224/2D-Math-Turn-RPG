@@ -320,6 +320,7 @@ button { font: inherit; color: inherit; }
 .result-card.win h2 { color: #2e9a4f; }
 .result-card.lose h2 { color: #d32f2f; }
 .result-stage { color: var(--muted); margin-top: 2px; }
+.repeat-note { color: var(--muted); }
 .unlock { background: #fff7e0; border-radius: 10px; padding: 8px; }
 .result-buttons { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
 
