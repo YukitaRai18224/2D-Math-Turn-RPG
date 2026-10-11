@@ -3,6 +3,8 @@
 // io 인터페이스
 //   chooseAction(unit)  → Promise<{ type: 'attack' | 'skill' | 'interrupt' | 'abort' }>
 //   quiz({ quiz, title, reward, unit }) → Promise<boolean>   (정답 여부)
+//
+// options.difficulty: 퀴즈 난이도 (MR.Quiz.DIFFICULTIES 의 id)
 //   delay(ms)           → Promise
 //   update()            화면 갱신
 //   log(text)           전투 기록
@@ -38,9 +40,10 @@
   }
 
   class Battle {
-    constructor(stage, levels, io) {
+    constructor(stage, levels, io, options = {}) {
       this.stage = stage;
       this.io = io;
+      this.difficulty = options.difficulty || MR.Quiz.DEFAULT;
       this.allies = MR.PARTY_ORDER.map((k) => makeAlly(k, levels[k] || 1));
       this.enemies = stage.enemies.map((k, i) =>
         makeEnemy(k, stage.level, i, stage.enemies.filter((x) => x === k).length > 1));
@@ -254,7 +257,7 @@
       if (this.checkEnd()) return;
 
       const ok = await this.io.quiz({
-        quiz: MR.Quiz.make('addSub'),
+        quiz: MR.Quiz.make('addSub', this.difficulty),
         title: `${u.name} · 일반 공격 퀴즈`,
         reward: '정답이면 스킬 포인트 +1',
         unit: u,
@@ -273,7 +276,7 @@
       this.gainSp(-1);
       this.io.update();
       const ok = await this.io.quiz({
-        quiz: MR.Quiz.make(u.def.quiz),
+        quiz: MR.Quiz.make(u.def.quiz, this.difficulty),
         title: `${u.name} · ${sk.name}`,
         reward: sk.bonusDesc,
         unit: u,
@@ -297,7 +300,7 @@
 
       const refund = Math.round(spent * ult.refund);
       const ok = await this.io.quiz({
-        quiz: MR.Quiz.make(u.def.quiz),
+        quiz: MR.Quiz.make(u.def.quiz, this.difficulty),
         title: `${u.name} · 에너지 회수 퀴즈`,
         reward: `정답이면 에너지 ${refund} 회복`,
         unit: u,

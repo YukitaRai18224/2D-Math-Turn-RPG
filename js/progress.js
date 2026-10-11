@@ -5,7 +5,7 @@
   function defaults() {
     const levels = {};
     for (const k of MR.PARTY_ORDER) levels[k] = 1;
-    return { cleared: {}, potions: 0, levels };
+    return { cleared: {}, potions: 0, levels, difficulty: MR.Quiz.DEFAULT };
   }
 
   MR.Progress = {
@@ -23,6 +23,7 @@
         cleared: (saved && saved.cleared) || d.cleared,
         potions: (saved && saved.potions) || 0,
         levels: { ...d.levels, ...((saved && saved.levels) || {}) },
+        difficulty: (saved && saved.difficulty) || d.difficulty,
       };
     },
 
@@ -34,8 +35,16 @@
       }
     },
 
+    setDifficulty(id) {
+      if (!MR.Quiz.DIFFICULTIES.some((d) => d.id === id)) return;
+      this.state.difficulty = id;
+      this.save();
+    },
+
     reset() {
+      const difficulty = this.state.difficulty;
       this.state = defaults();
+      this.state.difficulty = difficulty;
       this.save();
     },
 

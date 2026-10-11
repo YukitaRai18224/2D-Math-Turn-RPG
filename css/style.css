@@ -74,6 +74,16 @@ button { font: inherit; color: inherit; }
 .stage-meta { font-size: 12px; color: var(--muted); }
 .map-foot { margin-top: 28px; text-align: center; }
 
+/* 난이도 선택 */
+.difficulty { background: var(--panel); border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow); margin-bottom: 20px; }
+.difficulty h2 { font-size: 16px; margin: 0 0 8px; }
+.segmented { display: inline-flex; flex-wrap: wrap; background: #ece7df; border-radius: 12px; padding: 4px; gap: 4px; }
+.segmented button { border: 0; background: none; border-radius: 9px; padding: 8px 14px; font-weight: 700; color: var(--muted); cursor: pointer; }
+.segmented button.on { background: var(--accent); color: #fff; box-shadow: var(--shadow); }
+.difficulty-note { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); margin: 10px 0 0; }
+.difficulty-note b { color: var(--c, var(--ink)); margin-right: 3px; }
+.diff-chip { font-size: 12px; font-weight: 700; background: #ece9ff; color: var(--accent); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+
 /* ---------- 파티 ---------- */
 .char-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
 .char-card {
@@ -189,7 +199,7 @@ button { font: inherit; color: inherit; }
 .quiz-head img { width: 54px; height: 54px; border-radius: 50%; object-fit: cover; object-position: 50% 10%; border: 2px solid var(--c); }
 .quiz-title { font-weight: 800; }
 .quiz-reward { font-size: 13px; color: var(--muted); }
-.quiz-q { font-size: 30px; font-weight: 800; text-align: center; margin: 18px 0 10px; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.quiz-q { font-size: 28px; line-height: 1.35; font-weight: 800; text-align: center; margin: 18px 0 10px; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
 .frac { display: inline-flex; flex-direction: column; align-items: center; font-size: 0.75em; line-height: 1.1; vertical-align: middle; margin: 0 2px; }
 .frac span:first-child { border-bottom: 2px solid currentColor; padding: 0 4px; }
 .quiz-figure { display: block; width: 100%; max-width: 280px; margin: 0 auto 8px; }
@@ -197,6 +207,12 @@ button { font: inherit; color: inherit; }
 .fig-dash { stroke: #e0464b; stroke-width: 2; stroke-dasharray: 5 4; }
 .fig-mark { fill: none; stroke: #e0464b; stroke-width: 1.5; }
 .fig-label { font-size: 14px; font-weight: 700; fill: var(--ink); }
+.fig-vertex { font-size: 13px; font-weight: 700; fill: var(--muted); font-style: italic; }
+.fig-angle { font-size: 14px; font-weight: 800; fill: #e0464b; }
+.fig-line { stroke: #3a6fd8; stroke-width: 2; }
+.fig-circle { fill: #e8f0fe; stroke: #3a6fd8; stroke-width: 2.5; }
+.fig-dot { fill: #3a6fd8; }
+.quiz-q small { display: block; width: 100%; font-size: 15px; font-weight: 600; color: var(--muted); margin-top: 6px; }
 .quiz-form { display: flex; gap: 8px; }
 .quiz-form input { flex: 1; font-size: 22px; padding: 8px 12px; border: 2px solid var(--line); border-radius: 10px; text-align: center; min-width: 0; }
 .quiz-form input:focus { outline: none; border-color: var(--c); }

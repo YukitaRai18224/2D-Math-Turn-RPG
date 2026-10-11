@@ -13,7 +13,6 @@
       base: { hp: 1000, atk: 120, def: 50, spd: 105 },
       maxEnergy: 120,
       quiz: 'multiply',
-      quizLabel: '자연수의 곱셈',
       skill: {
         name: '홍련 베기',
         desc: '선택한 적에게 공격력 200% 피해',
@@ -47,7 +46,6 @@
       base: { hp: 950, atk: 100, def: 45, spd: 100 },
       maxEnergy: 120,
       quiz: 'fraction',
-      quizLabel: '분수의 덧셈/뺄셈',
       skill: {
         name: '물보라',
         desc: '모든 적에게 공격력 110% 피해',
@@ -86,7 +84,6 @@
       base: { hp: 1100, atk: 90, def: 55, spd: 95 },
       maxEnergy: 100,
       quiz: 'division',
-      quizLabel: '자연수의 나눗셈',
       skill: {
         name: '꽃바구니',
         desc: '체력 비율이 가장 낮은 아군을 공격력 250%만큼 회복',
@@ -124,7 +121,6 @@
       base: { hp: 1000, atk: 95, def: 50, spd: 110 },
       maxEnergy: 100,
       quiz: 'geometry',
-      quizLabel: '도형의 둘레/넓이',
       skill: {
         name: '해바라기 응원',
         desc: '모든 아군의 공격력 +20% (2턴)',

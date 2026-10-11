@@ -75,6 +75,15 @@
           }).join('')}
           <button class="btn" data-act="party">파티 · 레벨업${P().isLevelUpUnlocked() ? '' : ' 🔒'}</button>
         </section>
+        <section class="difficulty">
+          <h2>문제 난이도</h2>
+          <div class="segmented" role="radiogroup" aria-label="문제 난이도">
+            ${MR.Quiz.DIFFICULTIES.map((d) => `
+              <button role="radio" aria-checked="${d.id === s.difficulty}" class="${d.id === s.difficulty ? 'on' : ''}"
+                      data-act="difficulty" data-id="${d.id}">${d.name}</button>`).join('')}
+          </div>
+          <p class="difficulty-note">${MR.PARTY_ORDER.map((k) => `<span style="--c:${MR.CHARACTERS[k].color}"><b>${MR.CHARACTERS[k].name}</b> ${MR.Quiz.label(MR.CHARACTERS[k].quiz, s.difficulty)}</span>`).join('')}<span><b>일반 공격</b> ${MR.Quiz.label('addSub', s.difficulty)}</span></p>
+        </section>
         ${MR.CHAPTERS.map((ch) => `
           <section class="chapter">
             <h2>Chapter ${ch.id} · ${ch.name}</h2>
@@ -89,6 +98,7 @@
   // ---------- 파티 · 레벨업 ----------
   function showParty() {
     const unlocked = P().isLevelUpUnlocked();
+    const diff = P().state.difficulty;
     const cards = MR.PARTY_ORDER.map((k) => {
       const c = MR.CHARACTERS[k];
       const lv = P().level(k);
@@ -113,8 +123,8 @@
             </table>
             ${btn}
             <dl class="kit">
-              <dt>일반 공격</dt><dd>선택한 적에게 공격력 100% 피해. 덧셈/뺄셈 퀴즈 정답 시 스킬 포인트 +1</dd>
-              <dt>고유 스킬 · ${c.skill.name}</dt><dd>${c.skill.desc}. <em>${c.quizLabel} 퀴즈</em> ${c.skill.bonusDesc}</dd>
+              <dt>일반 공격</dt><dd>선택한 적에게 공격력 100% 피해. <em>${MR.Quiz.label('addSub', diff)} 퀴즈</em> 정답 시 스킬 포인트 +1</dd>
+              <dt>고유 스킬 · ${c.skill.name}</dt><dd>${c.skill.desc}. <em>${MR.Quiz.label(c.quiz, diff)} 퀴즈</em> ${c.skill.bonusDesc}</dd>
               <dt>궁극기 · ${c.ult.name}</dt><dd>${c.ult.desc}. 에너지 ${c.maxEnergy} 소모, 퀴즈 정답 시 소모량의 ${Math.round(c.ult.refund * 100)}% 회복</dd>
               <dt>특성 · ${c.trait.name}</dt><dd>${c.trait.desc}</dd>
             </dl>
@@ -127,6 +137,7 @@
         <header class="topbar">
           <button class="btn" data-act="map">← 스테이지 선택</button>
           <h1>파티 · 레벨업</h1>
+          <span class="diff-chip">문제 난이도: ${MR.Quiz.difficultyName(diff)}</span>
           <div class="potions">🧪 경험치 물약 <b>${P().state.potions}</b></div>
         </header>
         ${unlocked ? '' : `<p class="notice">레벨업 기능은 스테이지 ${MR.CONFIG.LEVEL_UNLOCK_STAGE}을 클리어하면 열립니다. 물약은 미리 모아둘 수 있어요.</p>`}
@@ -165,7 +176,7 @@
     currentStageIndex = index;
     const stage = MR.STAGES[index];
     logLines = [];
-    battle = new MR.Battle(stage, P().state.levels, io);
+    battle = new MR.Battle(stage, P().state.levels, io, { difficulty: P().state.difficulty });
     const b = battle;
 
     app().innerHTML = `
@@ -173,6 +184,7 @@
         <header class="battle-top">
           <button class="btn" data-act="retreat">← 후퇴</button>
           <div class="stage-title">스테이지 ${stage.id}</div>
+          <span class="diff-chip">${MR.Quiz.difficultyName(b.difficulty)}</span>
           <div id="round" class="round"></div>
           <div id="sp" class="sp"></div>
         </header>
@@ -368,6 +380,10 @@
     switch (act) {
       case 'stage':
         startBattle(Number(el.dataset.index));
+        break;
+      case 'difficulty':
+        P().setDifficulty(el.dataset.id);
+        showMap();
         break;
       case 'party':
         closeModal();
