@@ -2,6 +2,7 @@
 //   node tests/sim.js            → 퀴즈 검사 + 스테이지별 승률표
 //   node tests/sim.js 0.7        → 퀴즈 정답률 70% 가정
 //   node tests/sim.js --samples  → 난이도별 예시 문제 출력
+//   node tests/sim.js --chapter=2 → 챕터 2만 (Lv13~20 기준)
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -49,6 +50,11 @@ if (process.argv.includes('--samples')) {
 function autoIo(battle) {
   return {
     async chooseAction(u) {
+      // 80라운드가 지나도 안 끝나면 패배로 본다 (회복이 피해를 따라잡는 경우 대비)
+      if (battle.round > 80) {
+        battle.abort();
+        return { type: 'abort' };
+      }
       for (const a of battle.allies) if (battle.canUlt(a)) battle.requestUltimate(a.uid);
       if (battle.ultQueue.length) return { type: 'interrupt' };
       return { type: battle.sp >= 2 || (battle.sp >= 1 && u.key === 'pricia') ? 'skill' : 'attack' };
@@ -61,7 +67,7 @@ function autoIo(battle) {
   };
 }
 
-async function simulate(stage, level, runs = 300) {
+async function simulate(stage, level, runs = 150) {
   let wins = 0, rounds = 0;
   const levels = Object.fromEntries(MR.PARTY_ORDER.map((k) => [k, level]));
   for (let i = 0; i < runs; i++) {
@@ -75,10 +81,12 @@ async function simulate(stage, level, runs = 300) {
 }
 
 (async () => {
-  const levelsToTest = [1, 4, 7, 10];
+  const chapter = process.argv.find((a) => a.startsWith('--chapter='));
+  const ch = chapter ? chapter.split('=')[1] : null;
+  const levelsToTest = ch === '2' ? [13, 16, 18, 20] : [1, 4, 7, 10];
   console.log(`\n정답률 ${accuracy * 100}% 가정 · 승률 (평균 라운드)`);
   console.log('스테이지 ' + levelsToTest.map((l) => `Lv${l}`.padStart(14)).join(''));
-  for (const s of MR.STAGES) {
+  for (const s of MR.STAGES.filter((x) => !ch || x.id.startsWith(`${ch}-`))) {
     const cells = [];
     for (const lv of levelsToTest) {
       const r = await simulate(s, lv);
@@ -91,5 +99,5 @@ async function simulate(stage, level, runs = 300) {
   let total = 0;
   for (let lv = 1; lv < MR.CONFIG.MAX_LEVEL; lv++) total += MR.CONFIG.levelUpCost(lv);
   const rewards = MR.STAGES.reduce((s, x) => s + x.reward, 0);
-  console.log(`\n캐릭터 1명 1→${MR.CONFIG.MAX_LEVEL}레벨 물약: ${total}개 · 1-1~1-12 한 번씩 클리어 시 물약: ${rewards}개`);
+  console.log(`\n캐릭터 1명 1→${MR.CONFIG.MAX_LEVEL}레벨 물약: ${total}개 · 모든 스테이지를 한 번씩 클리어 시 물약: ${rewards}개`);
 })();

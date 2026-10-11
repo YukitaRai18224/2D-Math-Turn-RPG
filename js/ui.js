@@ -8,11 +8,43 @@
   let currentStageIndex = -1;
   let pendingAction = null; // 행동 선택을 기다리는 중이면 resolve 함수
   let logLines = [];
+  let selectedChapter = null; // 스테이지 선택 화면에서 보고 있는 챕터
 
   // ---------- 공통 ----------
   function bar(cls, value, max, text) {
     const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
     return `<div class="bar ${cls}"><i style="width:${pct}%"></i><span>${text}</span></div>`;
+  }
+
+  function monsterSvg(look) {
+    return look === 'witch' ? witchSvg() : slimeSvg(look);
+  }
+
+  // 암호의 대마녀 비즈네르
+  function witchSvg() {
+    return `
+      <svg viewBox="0 -10 120 120" class="slime-svg witch-svg" aria-hidden="true">
+        <ellipse cx="60" cy="104" rx="38" ry="5" fill="rgba(0,0,0,.15)"/>
+        <g class="cipher-orbit" font-family="monospace" font-weight="700" font-size="11" fill="#b48cff">
+          <text x="8" y="44">V</text><text x="104" y="38">K</text><text x="14" y="88">Q</text><text x="100" y="84">Z</text>
+        </g>
+        <path d="M60 46 L94 104 L26 104 Z" fill="#4a2386"/>
+        <path d="M60 46 L67 104 L53 104 Z" fill="#7b3fd0"/>
+        <path d="M30 104 L90 104 L88 98 L32 98 Z" fill="#e0b84a"/>
+        <path d="M46 36 C42 56 38 72 32 86 L50 66 Z" fill="#2d1b4e"/>
+        <path d="M74 36 C78 56 82 72 88 86 L70 66 Z" fill="#2d1b4e"/>
+        <circle cx="60" cy="40" r="13" fill="#f6dccb"/>
+        <path d="M47 38 Q52 28 60 30 Q68 28 73 38 Q66 33 60 34 Q54 33 47 38Z" fill="#2d1b4e"/>
+        <ellipse cx="55" cy="42" rx="2" ry="2.6" fill="#7b3fd0"/>
+        <ellipse cx="65" cy="42" rx="2" ry="2.6" fill="#7b3fd0"/>
+        <path d="M56 49 Q60 51 64 48" stroke="#8a3a5a" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+        <path d="M28 30 Q60 20 92 30 Q60 37 28 30 Z" fill="#2a1450"/>
+        <path d="M43 28 L60 -6 Q63 -9 66 -5 L77 27 Z" fill="#2a1450"/>
+        <path d="M44 25 L76 24 L77 28 L43 29 Z" fill="#e0b84a"/>
+        <line x1="95" y1="54" x2="101" y2="104" stroke="#8a5a2b" stroke-width="3" stroke-linecap="round"/>
+        <circle class="witch-orb" cx="94" cy="50" r="6.5" fill="#c9a6ff"/>
+        <circle cx="92" cy="48" r="2" fill="#fff" opacity=".8"/>
+      </svg>`;
   }
 
   function slimeSvg(look) {
@@ -50,12 +82,23 @@
     battle = null;
     closeModal();
     const s = P().state;
+    const chapterOf = (st) => Number(st.id.split('-')[0]);
+    const chapterUnlocked = (ch) => MR.STAGES.some((st, i) => chapterOf(st) === ch.id && P().isStageUnlocked(i));
+    if (!selectedChapter || !chapterUnlocked(MR.CHAPTERS.find((c) => c.id === selectedChapter))) {
+      // 처음에는 열린 챕터 중 가장 마지막 챕터를 보여 준다
+      selectedChapter = [...MR.CHAPTERS].reverse().find(chapterUnlocked).id;
+    }
+    const chapter = MR.CHAPTERS.find((c) => c.id === selectedChapter);
+    const prevChapterLast = (ch) => [...MR.STAGES].reverse().find((st) => chapterOf(st) === ch.id - 1);
+
     const stages = MR.STAGES.map((st, i) => {
+      if (chapterOf(st) !== selectedChapter) return '';
       const unlocked = P().isStageUnlocked(i);
       const cleared = P().isCleared(st.id);
-      const enemies = st.enemies.map((k) => `<span class="mini-slime">${slimeSvg(MR.MONSTERS[k].look)}</span>`).join('');
+      const enemies = st.enemies.map((k) => `<span class="mini-slime">${monsterSvg(MR.MONSTERS[k].look)}</span>`).join('');
       return `
-        <button class="stage-btn ${cleared ? 'cleared' : ''}" data-act="stage" data-index="${i}" ${unlocked ? '' : 'disabled'}>
+        <button class="stage-btn ${cleared ? 'cleared' : ''} ${st.boss ? 'boss' : ''}" data-act="stage" data-index="${i}" ${unlocked ? '' : 'disabled'}>
+          ${st.boss ? '<span class="boss-tag">BOSS</span>' : ''}
           <span class="stage-id">${st.id}</span>
           <span class="stage-enemies">${unlocked ? enemies : '🔒'}</span>
           <span class="stage-meta">${cleared ? '✓ 클리어' : unlocked ? `🧪 ${st.reward}` : '잠김'}</span>
@@ -84,11 +127,22 @@
           </div>
           <p class="difficulty-note">${MR.PARTY_ORDER.map((k) => `<span style="--c:${MR.CHARACTERS[k].color}"><b>${MR.CHARACTERS[k].name}</b> ${MR.Quiz.label(MR.CHARACTERS[k].quiz, s.difficulty)}</span>`).join('')}<span><b>일반 공격</b> ${MR.Quiz.label('addSub', s.difficulty)}</span></p>
         </section>
-        ${MR.CHAPTERS.map((ch) => `
-          <section class="chapter">
-            <h2>Chapter ${ch.id} · ${ch.name}</h2>
-            <div class="stage-grid">${stages}</div>
-          </section>`).join('')}
+        <nav class="chapter-tabs" role="tablist">
+          ${MR.CHAPTERS.map((ch) => {
+            const open = chapterUnlocked(ch);
+            const prev = prevChapterLast(ch);
+            return `
+              <button role="tab" aria-selected="${ch.id === selectedChapter}" class="chapter-tab ${ch.id === selectedChapter ? 'on' : ''}"
+                      data-act="chapter" data-id="${ch.id}" ${open ? '' : 'disabled'}
+                      title="${open ? '' : `${prev ? prev.id : ''} 클리어 시 열림`}">
+                <small>Chapter ${ch.id}</small>${open ? ch.name : `🔒 ${prev ? prev.id : ''} 클리어 시 열림`}
+              </button>`;
+          }).join('')}
+        </nav>
+        <section class="chapter chapter-${chapter.id}">
+          <h2>Chapter ${chapter.id} · ${chapter.name}</h2>
+          <div class="stage-grid">${stages}</div>
+        </section>
         <footer class="map-foot">
           <button class="link-btn" data-act="reset">진행 상황 초기화</button>
         </footer>
@@ -175,6 +229,7 @@
   async function startBattle(index) {
     currentStageIndex = index;
     const stage = MR.STAGES[index];
+    selectedChapter = Number(stage.id.split('-')[0]);
     logLines = [];
     battle = new MR.Battle(stage, P().state.levels, io, { difficulty: P().state.difficulty });
     const b = battle;
@@ -218,16 +273,17 @@
       b.upcoming().map((u) => {
         const face = u.side === 'ally'
           ? `<img src="${u.def.image}" alt="">`
-          : `<span class="strip-slime">${slimeSvg(u.def.look)}</span>`;
+          : `<span class="strip-slime">${monsterSvg(u.def.look)}</span>`;
         return `<span class="strip-unit ${u.side} ${u === b.current ? 'now' : ''}" title="${u.name}" style="--c:${u.def.color || '#888'}">${face}</span>`;
       }).join('');
 
     const target = b.getTarget();
     document.getElementById('enemy-row').innerHTML = b.enemies.map((e) => `
-      <button class="enemy-card ${e.alive ? '' : 'dead'} ${e === target ? 'targeted' : ''} ${e === b.current ? 'active' : ''}"
+      <button class="enemy-card ${e.boss ? 'boss' : ''} ${e.alive ? '' : 'dead'} ${e === target ? 'targeted' : ''} ${e === b.current ? 'active' : ''}"
               data-act="target" data-uid="${e.uid}" data-fx="${e.uid}" ${e.alive ? '' : 'disabled'}>
         ${e === target ? '<span class="target-mark">▼ 대상</span>' : ''}
-        ${slimeSvg(e.def.look)}
+        ${e.boss ? '<span class="boss-tag">BOSS</span>' : ''}
+        ${monsterSvg(e.def.look)}
         <div class="unit-name">${e.name} <small>Lv.${e.level}</small></div>
         ${bar('hp', e.hp, e.maxHp, `${e.hp} / ${e.maxHp}`)}
         <div class="chips">${buffChips(e)}</div>
@@ -273,7 +329,86 @@
     }
   }
 
-  function showFx({ type, uid, amount }) {
+  const CIPHER_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+  function fxSpan(cls, text, x, y, style = '') {
+    const n = document.createElement('span');
+    n.className = cls;
+    n.textContent = text;
+    n.style.cssText = `left:${x}px;top:${y}px;${style}`;
+    document.getElementById('fx-layer').appendChild(n);
+    return n;
+  }
+
+  function showSkillFx({ uid, name, effect, side, color }) {
+    const caster = battle && battle.find(uid);
+    const layer = document.getElementById('fx-layer');
+    const banner = document.createElement('div');
+    banner.className = `skill-banner ${side} ${effect}`;
+    if (color) banner.style.setProperty('--c', color);
+    banner.innerHTML = `<small>${caster ? caster.name : ''}${effect === 'ult' ? ' · 궁극기' : ''}</small><b>${name}</b>`;
+    // 적과 아군 사이(행동 버튼 영역) 가운데에 띄워서 양쪽 이펙트를 가리지 않게 한다
+    const mid = document.querySelector('.battle .mid');
+    if (mid) {
+      const r = mid.getBoundingClientRect();
+      banner.style.top = `${r.top + r.height / 2}px`;
+    }
+    layer.appendChild(banner);
+    setTimeout(() => banner.remove(), 1600);
+
+    const casterEl = document.querySelector(`[data-fx="${uid}"]`);
+    if (casterEl) {
+      casterEl.classList.remove('casting');
+      void casterEl.offsetWidth;
+      casterEl.classList.add('casting');
+      setTimeout(() => casterEl.classList.remove('casting'), 1300);
+    }
+
+    if (effect === 'cipher') {
+      // 암호 문자가 아군 쪽으로 쏟아지며 다른 글자로 바뀐다 (A → D 같은 치환)
+      const row = document.getElementById('ally-row');
+      if (!row) return;
+      const r = row.getBoundingClientRect();
+      row.classList.remove('cipher-hit');
+      void row.offsetWidth;
+      row.classList.add('cipher-hit');
+      setTimeout(() => row.classList.remove('cipher-hit'), 1400);
+      for (let i = 0; i < 26; i++) {
+        const from = CIPHER_LETTERS[Math.floor(Math.random() * 26)];
+        const n = fxSpan('fx-cipher', from, r.left + Math.random() * r.width, r.top - 40 + Math.random() * 30,
+          `animation-delay:${Math.random() * 450}ms`);
+        setTimeout(() => {
+          const shift = 1 + Math.floor(Math.random() * 25);
+          n.textContent = CIPHER_LETTERS[(CIPHER_LETTERS.indexOf(from) + shift) % 26];
+        }, 450 + Math.random() * 300);
+        setTimeout(() => n.remove(), 1500);
+      }
+    } else if (effect === 'decrypt') {
+      // 흐트러진 글자가 제자리로 돌아오며 초록 고리가 퍼진다
+      if (!casterEl) return;
+      const r = casterEl.getBoundingClientRect();
+      const cx = r.left + r.width / 2, cy = r.top + r.height * 0.4;
+      for (let i = 0; i < 3; i++) {
+        const ring = fxSpan('fx-ring', '', cx, cy, `animation-delay:${i * 220}ms`);
+        setTimeout(() => ring.remove(), 1500);
+      }
+      const word = 'DECRYPT';
+      [...word].forEach((ch, i) => {
+        const n = fxSpan('fx-decrypt', CIPHER_LETTERS[Math.floor(Math.random() * 26)],
+          cx + (i - (word.length - 1) / 2) * 18, cy + 30, `animation-delay:${i * 60}ms`);
+        setTimeout(() => (n.textContent = ch), 500 + i * 70);
+        setTimeout(() => n.remove(), 1500);
+      });
+    } else if (effect === 'ult' && casterEl) {
+      const r = casterEl.getBoundingClientRect();
+      const burst = fxSpan('fx-burst', '', r.left + r.width / 2, r.top + r.height / 2, color ? `--c:${color}` : '');
+      setTimeout(() => burst.remove(), 1000);
+    }
+  }
+
+  function showFx(evt) {
+    if (evt.type === 'skill') return showSkillFx(evt);
+    const { type, uid, amount } = evt;
     const el = document.querySelector(`[data-fx="${uid}"]`);
     if (!el) return;
     const r = el.getBoundingClientRect();
@@ -380,6 +515,10 @@
     switch (act) {
       case 'stage':
         startBattle(Number(el.dataset.index));
+        break;
+      case 'chapter':
+        selectedChapter = Number(el.dataset.id);
+        showMap();
         break;
       case 'difficulty':
         P().setDifficulty(el.dataset.id);

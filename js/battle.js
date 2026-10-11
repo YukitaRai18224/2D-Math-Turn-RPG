@@ -8,7 +8,7 @@
 //   delay(ms)           → Promise
 //   update()            화면 갱신
 //   log(text)           전투 기록
-//   fx(event)           연출 (피해/회복 숫자 등)
+//   fx(event)           연출 (피해/회복 숫자, 스킬 이름 배너 등)
 //
 // 턴 진행: 매 라운드 살아 있는 유닛이 속도(spd) 순서로 한 번씩 행동한다.
 // 궁극기: 에너지가 가득 차면 언제든 예약할 수 있고, 진행 중인 행동이 끝난 뒤 다음 턴이 시작되기 전에 발동한다.
@@ -26,16 +26,18 @@
     };
   }
 
-  function makeEnemy(key, stageLevel, index, needsLetter) {
+  function makeEnemy(key, stageLevel, index, letterIndex) {
     const def = MR.MONSTERS[key];
-    const m = 1 + MR.CONFIG.ENEMY_SCALE * (stageLevel - 1);
+    // fixedStats 인 몬스터(보스)는 스테이지 레벨로 강화하지 않고 base 값을 그대로 쓴다
+    const m = def.fixedStats ? 1 : 1 + MR.CONFIG.ENEMY_SCALE * (stageLevel - 1);
     const hp = Math.round(def.base.hp * m);
     return {
       uid: `e_${index}`, key, side: 'enemy', def,
-      name: needsLetter ? `${def.name} ${ENEMY_LETTERS[index]}` : def.name,
+      name: letterIndex >= 0 ? `${def.name} ${ENEMY_LETTERS[letterIndex]}` : def.name,
       level: stageLevel,
       maxHp: hp, hp, baseAtk: Math.round(def.base.atk * m), baseDef: Math.round(def.base.def * m), spd: def.base.spd,
-      buffs: [], alive: true,
+      buffs: [], alive: true, boss: !!def.boss,
+      mem: {}, // 몬스터가 전투 중 기억할 값 (행동 패턴, 재사용 대기 등)
     };
   }
 
@@ -45,8 +47,12 @@
       this.io = io;
       this.difficulty = options.difficulty || MR.Quiz.DEFAULT;
       this.allies = MR.PARTY_ORDER.map((k) => makeAlly(k, levels[k] || 1));
-      this.enemies = stage.enemies.map((k, i) =>
-        makeEnemy(k, stage.level, i, stage.enemies.filter((x) => x === k).length > 1));
+      this.enemies = stage.enemies.map((k, i) => {
+        // 같은 종류가 여러 마리면 그 종류 안에서의 순서로 A, B, C… 를 붙인다
+        const same = stage.enemies.filter((x) => x === k).length;
+        const nth = stage.enemies.slice(0, i).filter((x) => x === k).length;
+        return makeEnemy(k, stage.level, i, same > 1 ? nth : -1);
+      });
       this.sp = MR.CONFIG.SP_START;
       this.round = 0;
       this.order = [];
@@ -152,11 +158,27 @@
       if (!target || !target.alive) return 0;
       const trait = src.def.trait;
       const bonus = trait && trait.healBonus ? trait.healBonus(this, src, target) : 0;
-      const amount = Math.round(this.stat(src, 'atk') * mult * (1 + bonus));
+      return this.restoreHp(target, Math.round(this.stat(src, 'atk') * mult * (1 + bonus)));
+    }
+
+    // 최대 체력 비율로 회복 (몬스터 회복 스킬용)
+    healMaxHp(target, pct) {
+      if (!target || !target.alive) return 0;
+      return this.restoreHp(target, Math.round(target.maxHp * pct));
+    }
+
+    restoreHp(target, amount) {
       const healed = Math.min(amount, target.maxHp - target.hp);
       target.hp += healed;
       this.io.fx({ type: 'heal', uid: target.uid, amount: healed });
       return healed;
+    }
+
+    // 스킬 이름 배너와 이펙트를 띄우고, 연출이 끝날 때까지 기다린다
+    async announce(u, skillName, effect) {
+      this.log(`${u.name}의 「${skillName}」!`);
+      this.io.fx({ type: 'skill', uid: u.uid, name: skillName, effect, side: u.side, color: u.def.color });
+      await this.io.delay(MR.CONFIG.DELAY.skillBanner);
     }
 
     requestUltimate(uid) {
@@ -293,7 +315,8 @@
       const ult = u.def.ult;
       const spent = u.energy;
       u.energy = 0;
-      this.log(`⚡ ${u.name}의 궁극기 「${ult.name}」!`);
+      this.io.update();
+      await this.announce(u, ult.name, 'ult');
       ult.run(this, u);
       this.io.update();
       if (this.checkEnd()) return;
@@ -315,7 +338,7 @@
     async enemyTurn(u) {
       await this.io.delay(MR.CONFIG.DELAY.enemyAction);
       if (this.over) return;
-      u.def.act(this, u);
+      await u.def.act(this, u);
     }
 
     endTurn(u) {

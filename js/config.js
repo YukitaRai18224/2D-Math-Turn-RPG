@@ -29,7 +29,7 @@
     ENEMY_SCALE: 0.35,
 
     // 연출 속도 (ms)
-    DELAY: { enemyAction: 650, afterAction: 350, quizCorrect: 1000, quizWrong: 1900 },
+    DELAY: { enemyAction: 650, afterAction: 350, quizCorrect: 1000, quizWrong: 1900, skillBanner: 1100 },
   };
 
   MR.statsAtLevel = function (base, level) {
