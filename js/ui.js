@@ -16,33 +16,40 @@
     return `<div class="bar ${cls}"><i style="width:${pct}%"></i><span>${text}</span></div>`;
   }
 
-  function monsterSvg(look) {
-    return look === 'witch' ? witchSvg() : slimeSvg(look);
+  function monsterSvg(def) {
+    return def.look === 'witch' ? witchSvg(def.palette) : slimeSvg(def.look);
   }
 
-  // 암호의 대마녀 비즈네르
-  function witchSvg() {
+  // 마녀 색 구성: 기본(비즈네르, 보라·암호 문자) / imaginary(라파, 청록·허수 i)
+  const WITCH_PALETTES = {
+    cipher: { robe: '#4a2386', trim: '#7b3fd0', hat: '#2a1450', hair: '#2d1b4e', eye: '#7b3fd0', orb: '#c9a6ff', glyph: '#b48cff', glyphs: ['V', 'K', 'Q', 'Z'] },
+    imaginary: { robe: '#135e6c', trim: '#1f8a9e', hat: '#0b3a44', hair: '#e8eef2', eye: '#1f8a9e', orb: '#8ff0ff', glyph: '#3ec6dc', glyphs: ['i', '√−1', 'i²', '2i'] },
+  };
+
+  function witchSvg(paletteName) {
+    const c = WITCH_PALETTES[paletteName] || WITCH_PALETTES.cipher;
+    const g = c.glyphs;
     return `
       <svg viewBox="0 -10 120 120" class="slime-svg witch-svg" aria-hidden="true">
         <ellipse cx="60" cy="104" rx="38" ry="5" fill="rgba(0,0,0,.15)"/>
-        <g class="cipher-orbit" font-family="monospace" font-weight="700" font-size="11" fill="#b48cff">
-          <text x="8" y="44">V</text><text x="104" y="38">K</text><text x="14" y="88">Q</text><text x="100" y="84">Z</text>
+        <g class="cipher-orbit" font-family="ui-serif, Georgia, serif" font-style="italic" font-weight="700" font-size="11" fill="${c.glyph}">
+          <text x="4" y="44">${g[0]}</text><text x="100" y="38">${g[1]}</text><text x="8" y="88">${g[2]}</text><text x="100" y="84">${g[3]}</text>
         </g>
-        <path d="M60 46 L94 104 L26 104 Z" fill="#4a2386"/>
-        <path d="M60 46 L67 104 L53 104 Z" fill="#7b3fd0"/>
+        <path d="M60 46 L94 104 L26 104 Z" fill="${c.robe}"/>
+        <path d="M60 46 L67 104 L53 104 Z" fill="${c.trim}"/>
         <path d="M30 104 L90 104 L88 98 L32 98 Z" fill="#e0b84a"/>
-        <path d="M46 36 C42 56 38 72 32 86 L50 66 Z" fill="#2d1b4e"/>
-        <path d="M74 36 C78 56 82 72 88 86 L70 66 Z" fill="#2d1b4e"/>
+        <path d="M46 36 C42 56 38 72 32 86 L50 66 Z" fill="${c.hair}"/>
+        <path d="M74 36 C78 56 82 72 88 86 L70 66 Z" fill="${c.hair}"/>
         <circle cx="60" cy="40" r="13" fill="#f6dccb"/>
-        <path d="M47 38 Q52 28 60 30 Q68 28 73 38 Q66 33 60 34 Q54 33 47 38Z" fill="#2d1b4e"/>
-        <ellipse cx="55" cy="42" rx="2" ry="2.6" fill="#7b3fd0"/>
-        <ellipse cx="65" cy="42" rx="2" ry="2.6" fill="#7b3fd0"/>
+        <path d="M47 38 Q52 28 60 30 Q68 28 73 38 Q66 33 60 34 Q54 33 47 38Z" fill="${c.hair}"/>
+        <ellipse cx="55" cy="42" rx="2" ry="2.6" fill="${c.eye}"/>
+        <ellipse cx="65" cy="42" rx="2" ry="2.6" fill="${c.eye}"/>
         <path d="M56 49 Q60 51 64 48" stroke="#8a3a5a" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-        <path d="M28 30 Q60 20 92 30 Q60 37 28 30 Z" fill="#2a1450"/>
-        <path d="M43 28 L60 -6 Q63 -9 66 -5 L77 27 Z" fill="#2a1450"/>
+        <path d="M28 30 Q60 20 92 30 Q60 37 28 30 Z" fill="${c.hat}"/>
+        <path d="M43 28 L60 -6 Q63 -9 66 -5 L77 27 Z" fill="${c.hat}"/>
         <path d="M44 25 L76 24 L77 28 L43 29 Z" fill="#e0b84a"/>
         <line x1="95" y1="54" x2="101" y2="104" stroke="#8a5a2b" stroke-width="3" stroke-linecap="round"/>
-        <circle class="witch-orb" cx="94" cy="50" r="6.5" fill="#c9a6ff"/>
+        <circle class="witch-orb" cx="94" cy="50" r="6.5" fill="${c.orb}"/>
         <circle cx="92" cy="48" r="2" fill="#fff" opacity=".8"/>
       </svg>`;
   }
@@ -71,6 +78,8 @@
   function buffChips(u) {
     return u.buffs
       .map((b) => {
+        if (b.kind === 'silence') return `<span class="chip silence">🔇 침묵 · ${b.turns}턴</span>`;
+        if (b.kind === 'mark') return `<span class="chip mark" title="다음 퀴즈를 틀리면 1턴 침묵">ⅰ 허수 표식</span>`;
         const up = b.pct > 0;
         return `<span class="chip ${up ? 'up' : 'down'}">${b.label} ${up ? '+' : ''}${Math.round(b.pct * 100)}% · ${b.turns}턴</span>`;
       })
@@ -95,7 +104,7 @@
       if (chapterOf(st) !== selectedChapter) return '';
       const unlocked = P().isStageUnlocked(i);
       const cleared = P().isCleared(st.id);
-      const enemies = st.enemies.map((k) => `<span class="mini-slime">${monsterSvg(MR.MONSTERS[k].look)}</span>`).join('');
+      const enemies = st.enemies.map((k) => `<span class="mini-slime">${monsterSvg(MR.MONSTERS[k])}</span>`).join('');
       return `
         <button class="stage-btn ${cleared ? 'cleared' : ''} ${st.boss ? 'boss' : ''}" data-act="stage" data-index="${i}" ${unlocked ? '' : 'disabled'}>
           ${st.boss ? '<span class="boss-tag">BOSS</span>' : ''}
@@ -211,6 +220,7 @@
       });
     },
     quiz: askQuiz,
+    chooseAlly,
     delay: (ms) => new Promise((r) => setTimeout(r, ms)),
     update: () => renderBattle(),
     log(text) {
@@ -273,7 +283,7 @@
       b.upcoming().map((u) => {
         const face = u.side === 'ally'
           ? `<img src="${u.def.image}" alt="">`
-          : `<span class="strip-slime">${monsterSvg(u.def.look)}</span>`;
+          : `<span class="strip-slime">${monsterSvg(u.def)}</span>`;
         return `<span class="strip-unit ${u.side} ${u === b.current ? 'now' : ''}" title="${u.name}" style="--c:${u.def.color || '#888'}">${face}</span>`;
       }).join('');
 
@@ -283,7 +293,7 @@
               data-act="target" data-uid="${e.uid}" data-fx="${e.uid}" ${e.alive ? '' : 'disabled'}>
         ${e === target ? '<span class="target-mark">▼ 대상</span>' : ''}
         ${e.boss ? '<span class="boss-tag">BOSS</span>' : ''}
-        ${monsterSvg(e.def.look)}
+        ${monsterSvg(e.def)}
         <div class="unit-name">${e.name} <small>Lv.${e.level}</small></div>
         ${bar('hp', e.hp, e.maxHp, `${e.hp} / ${e.maxHp}`)}
         <div class="chips">${buffChips(e)}</div>
@@ -292,17 +302,18 @@
     document.getElementById('ally-row').innerHTML = b.allies.map((a) => {
       const full = a.alive && a.energy >= a.maxEnergy;
       const queued = b.ultQueue.includes(a.uid);
+      const silenced = b.isSilenced(a);
       return `
-        <div class="ally-card ${a.alive ? '' : 'dead'} ${a === b.current ? 'active' : ''}" data-fx="${a.uid}" style="--c:${a.def.color}">
+        <div class="ally-card ${a.alive ? '' : 'dead'} ${a === b.current ? 'active' : ''} ${silenced ? 'silenced' : ''}" data-fx="${a.uid}" data-ally="${a.uid}" style="--c:${a.def.color}">
           <div class="portrait"><img src="${a.def.image}" alt="${a.name}"></div>
           <div class="ally-info">
             <div class="unit-name">${a.name} <small>Lv.${a.level}</small></div>
             ${bar('hp', a.hp, a.maxHp, `${a.hp} / ${a.maxHp}`)}
             ${bar('en', a.energy, a.maxEnergy, `⚡ ${a.energy} / ${a.maxEnergy}`)}
             <div class="chips">${buffChips(a)}</div>
-            <button class="ult-btn ${full ? 'ready' : ''}" data-act="ult" data-uid="${a.uid}"
-                    ${full && !queued && !b.over ? '' : 'disabled'} title="${a.def.ult.desc}">
-              ${queued ? '예약됨' : `궁극기 · ${a.def.ult.name}`}
+            <button class="ult-btn ${full && !silenced ? 'ready' : ''}" data-act="ult" data-uid="${a.uid}"
+                    ${b.canUlt(a) && !queued ? '' : 'disabled'} title="${a.def.ult.desc}">
+              ${silenced ? '🔇 침묵 중' : queued ? '예약됨' : `궁극기 · ${a.def.ult.name}`}
             </button>
           </div>
         </div>`;
@@ -318,8 +329,8 @@
           <button class="btn action" data-act="attack">
             일반 공격<small>공격력 100% 피해 · 퀴즈 정답 시 SP +1</small>
           </button>
-          <button class="btn action primary" data-act="skill" ${b.sp >= 1 ? '' : 'disabled'}>
-            ${sk.name} <span class="cost">SP 1</span><small>${sk.desc}</small>
+          <button class="btn action primary" data-act="skill" ${b.sp >= 1 && !b.isSilenced(u) ? '' : 'disabled'}>
+            ${sk.name} <span class="cost">SP 1</span><small>${b.isSilenced(u) ? '🔇 침묵 중이라 쓸 수 없어요' : sk.desc}</small>
           </button>
         </div>`;
     } else if (b.current && b.current.side === 'enemy') {
@@ -330,6 +341,7 @@
   }
 
   const CIPHER_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
   function fxSpan(cls, text, x, y, style = '') {
     const n = document.createElement('span');
@@ -399,6 +411,27 @@
         setTimeout(() => (n.textContent = ch), 500 + i * 70);
         setTimeout(() => n.remove(), 1500);
       });
+    } else if (effect === 'mark') {
+      // 허수 i 가 아군 카드마다 내려앉는다
+      document.querySelectorAll('.ally-card:not(.dead)').forEach((card, k) => {
+        const r = card.getBoundingClientRect();
+        for (let i = 0; i < 3; i++) {
+          const n = fxSpan('fx-imag', pick(['i', 'i', '√−1', 'i²']), r.left + r.width * (0.25 + 0.25 * i), r.top - 30,
+            `animation-delay:${k * 90 + i * 120}ms`);
+          setTimeout(() => n.remove(), 1600);
+        }
+      });
+    } else if (effect === 'seal') {
+      // 아군 전체에 봉인 사슬이 번쩍인다 (대상은 이어서 플레이어가 고른다)
+      const row = document.getElementById('ally-row');
+      if (!row) return;
+      row.classList.remove('seal-hit');
+      void row.offsetWidth;
+      row.classList.add('seal-hit');
+      setTimeout(() => row.classList.remove('seal-hit'), 1400);
+      const r = row.getBoundingClientRect();
+      const n = fxSpan('fx-seal', '🔇', r.left + r.width / 2, r.top + r.height / 2);
+      setTimeout(() => n.remove(), 1400);
     } else if (effect === 'ult' && casterEl) {
       const r = casterEl.getBoundingClientRect();
       const burst = fxSpan('fx-burst', '', r.left + r.width / 2, r.top + r.height / 2, color ? `--c:${color}` : '');
@@ -464,6 +497,35 @@
           closeModal();
           resolve(res.correct);
         }, res.correct ? MR.CONFIG.DELAY.quizCorrect + (res.note ? 900 : 0) : MR.CONFIG.DELAY.quizWrong);
+      });
+    });
+  }
+
+  // 보스 스킬 대상 등 플레이어가 자기 아군 한 명을 고르는 창
+  function chooseAlly({ title, desc, allies }) {
+    return new Promise((resolve) => {
+      modal().innerHTML = `
+        <div class="overlay">
+          <div class="choose-card">
+            <div class="quiz-title">${title}</div>
+            <p class="choose-desc">${desc}</p>
+            <div class="choose-grid">
+              ${allies.map((a) => `
+                <button class="choose-ally" data-pick="${a.uid}" style="--c:${a.def.color}">
+                  <img src="${a.def.image}" alt="">
+                  <b>${a.name}</b>
+                  <small>${a.def.role}</small>
+                  ${battle && battle.hasMark(a) ? '<span class="chip mark">ⅰ 허수 표식</span>' : ''}
+                </button>`).join('')}
+            </div>
+          </div>
+        </div>`;
+      modal().querySelectorAll('[data-pick]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const picked = allies.find((a) => a.uid === btn.dataset.pick);
+          closeModal();
+          resolve(picked);
+        });
       });
     });
   }

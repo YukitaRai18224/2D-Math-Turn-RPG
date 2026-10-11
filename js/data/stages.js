@@ -4,6 +4,7 @@
   const S = 'slime';
   const A = 'armorSlime';
 
+  const R = 'rafa';
   const V = 'vigenere';
 
   MR.CHAPTERS = [
@@ -23,7 +24,7 @@
     { id: '1-9', level: 8, enemies: [S, A, S, S], reward: 7 },
     { id: '1-10', level: 9, enemies: [A, A, S], reward: 7 },
     { id: '1-11', level: 10, enemies: [A, S, A, S], reward: 8 },
-    { id: '1-12', level: 11, enemies: [A, A, A, S], reward: 10 },
+    { id: '1-12', level: 10, enemies: [S, R, S], reward: 10, boss: true },
 
     { id: '2-1', level: 11, enemies: [S, S, S], reward: 8 },
     { id: '2-2', level: 11, enemies: [A, S, A], reward: 8 },

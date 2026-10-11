@@ -3,6 +3,7 @@
 // io 인터페이스
 //   chooseAction(unit)  → Promise<{ type: 'attack' | 'skill' | 'interrupt' | 'abort' }>
 //   quiz({ quiz, title, reward, unit }) → Promise<boolean>   (정답 여부)
+//   chooseAlly({ title, desc, allies }) → Promise<unit>       (플레이어가 아군 한 명을 고름)
 //
 // options.difficulty: 퀴즈 난이도 (MR.Quiz.DIFFICULTIES 의 id)
 //   delay(ms)           → Promise
@@ -109,7 +110,16 @@
     }
 
     canUlt(u) {
-      return !this.over && u.side === 'ally' && u.alive && u.energy >= u.maxEnergy;
+      return !this.over && u.side === 'ally' && u.alive && u.energy >= u.maxEnergy && !this.isSilenced(u);
+    }
+
+    // 침묵: 고유 스킬과 궁극기를 쓸 수 없고 일반 공격만 가능
+    isSilenced(u) {
+      return u.buffs.some((b) => b.kind === 'silence');
+    }
+
+    hasMark(u) {
+      return u.buffs.some((b) => b.kind === 'mark');
     }
 
     // ---------- 상태 변경 ----------
@@ -179,6 +189,44 @@
       this.log(`${u.name}의 「${skillName}」!`);
       this.io.fx({ type: 'skill', uid: u.uid, name: skillName, effect, side: u.side, color: u.def.color });
       await this.io.delay(MR.CONFIG.DELAY.skillBanner);
+    }
+
+    addSilence(u, turns) {
+      if (!u.alive) return;
+      const cur = u.buffs.find((b) => b.kind === 'silence');
+      const fresh = this.current === u;
+      if (cur && cur.turns >= turns) return;
+      u.buffs = u.buffs.filter((b) => b.kind !== 'silence');
+      u.buffs.push({ id: 'silence', kind: 'silence', label: '침묵', turns, fresh });
+      // 이미 예약된 궁극기도 취소된다
+      this.ultQueue = this.ultQueue.filter((id) => id !== u.uid);
+      this.log(`${u.name}이(가) ${turns}턴 동안 침묵에 걸렸다!`);
+    }
+
+    // 허수 표식: 다음 퀴즈를 틀리면 1턴 침묵. 퀴즈를 한 번 풀면 사라진다
+    addMark(u) {
+      if (!u.alive) return;
+      u.buffs = u.buffs.filter((b) => b.kind !== 'mark');
+      u.buffs.push({ id: 'mark', kind: 'mark', label: '허수 표식', turns: Infinity });
+    }
+
+    // 모든 퀴즈는 여기를 거친다 (허수 표식 처리)
+    async askQuiz(u, { kind, title, reward }) {
+      const marked = this.hasMark(u);
+      const ok = await this.io.quiz({
+        quiz: MR.Quiz.make(kind, this.difficulty),
+        title,
+        reward: marked ? `${reward}<br><span class="mark-warn">허수 표식: 틀리면 1턴 침묵</span>` : reward,
+        unit: u,
+      });
+      if (this.over) return ok;
+      if (marked) {
+        u.buffs = u.buffs.filter((b) => b.kind !== 'mark');
+        if (ok) this.log(`${u.name}의 허수 표식이 사라졌다.`);
+        else this.addSilence(u, 1);
+        this.io.update();
+      }
+      return ok;
     }
 
     requestUltimate(uid) {
@@ -262,7 +310,7 @@
           continue;
         }
         if (choice.type === 'skill') {
-          if (this.sp < 1) continue;
+          if (this.sp < 1 || this.isSilenced(u)) continue;
           await this.useSkill(u);
         } else {
           await this.useAttack(u);
@@ -278,11 +326,10 @@
       this.io.update();
       if (this.checkEnd()) return;
 
-      const ok = await this.io.quiz({
-        quiz: MR.Quiz.make('addSub', this.difficulty),
+      const ok = await this.askQuiz(u, {
+        kind: 'addSub',
         title: `${u.name} · 일반 공격 퀴즈`,
         reward: '정답이면 스킬 포인트 +1',
-        unit: u,
       });
       if (this.over) return;
       if (ok && this.sp < MR.CONFIG.SP_MAX) {
@@ -297,11 +344,10 @@
       const sk = u.def.skill;
       this.gainSp(-1);
       this.io.update();
-      const ok = await this.io.quiz({
-        quiz: MR.Quiz.make(u.def.quiz, this.difficulty),
+      const ok = await this.askQuiz(u, {
+        kind: u.def.quiz,
         title: `${u.name} · ${sk.name}`,
         reward: sk.bonusDesc,
-        unit: u,
       });
       if (this.over) return;
       this.log(`${u.name}의 고유 스킬 「${sk.name}」${ok ? ' (보너스 발동!)' : ''}`);
@@ -322,11 +368,10 @@
       if (this.checkEnd()) return;
 
       const refund = Math.round(spent * ult.refund);
-      const ok = await this.io.quiz({
-        quiz: MR.Quiz.make(u.def.quiz, this.difficulty),
+      const ok = await this.askQuiz(u, {
+        kind: u.def.quiz,
         title: `${u.name} · 에너지 회수 퀴즈`,
         reward: `정답이면 에너지 ${refund} 회복`,
-        unit: u,
       });
       if (this.over) return;
       if (ok) {

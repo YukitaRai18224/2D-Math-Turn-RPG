@@ -57,7 +57,12 @@ function autoIo(battle) {
       }
       for (const a of battle.allies) if (battle.canUlt(a)) battle.requestUltimate(a.uid);
       if (battle.ultQueue.length) return { type: 'interrupt' };
+      if (battle.isSilenced(u)) return { type: 'attack' };
       return { type: battle.sp >= 2 || (battle.sp >= 1 && u.key === 'pricia') ? 'skill' : 'attack' };
+    },
+    async chooseAlly({ allies }) {
+      // 다음 차례가 가장 먼 아군에게 침묵을 넘긴다고 가정하지 않고, 무작위로 고른다
+      return allies[Math.floor(Math.random() * allies.length)];
     },
     async quiz() { return Math.random() < accuracy; },
     async delay() {},

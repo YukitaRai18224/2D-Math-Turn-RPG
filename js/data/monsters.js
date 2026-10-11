@@ -25,6 +25,55 @@
       },
     },
 
+    // 1-12 보스. 허수(i)를 다루는 마녀.
+    rafa: {
+      name: '허수의 대마녀 라파',
+      desc: '「허수 표식」으로 아군 전체에 표식, 「허수 봉인」으로 플레이어가 고른 아군을 침묵시킨다',
+      look: 'witch',
+      palette: 'imaginary',
+      boss: true,
+      color: '#1f8a9e',
+      fixedStats: true,
+      base: { hp: 11000, atk: 1000, def: 150, spd: 98 },
+      skills: {
+        mark: { name: '허수 표식', desc: '모든 아군에게 허수 표식 (다음 퀴즈를 틀리면 1턴 침묵)' },
+        seal: { name: '허수 봉인', desc: '플레이어가 고른 아군 1명에게 2턴 침묵. 자료와 통계 퀴즈를 맞히면 1턴' },
+        bolt: { name: '허수 탄환', desc: '무작위 아군 2명에게 공격력 100% 피해' },
+      },
+      // 행동 순서: 허수 표식 → 허수 탄환 → 허수 봉인 → 허수 탄환 → (반복)
+      async act(b, self) {
+        const m = self.mem;
+        m.turn = (m.turn || 0) + 1;
+        const sk = this.skills;
+        const step = (m.turn - 1) % 4;
+
+        if (step === 0) {
+          await b.announce(self, sk.mark.name, 'mark');
+          for (const a of b.aliveAllies()) b.addMark(a);
+          b.log('모든 아군에게 허수 표식이 새겨졌다! 다음 퀴즈를 틀리면 침묵에 걸린다.');
+        } else if (step === 2) {
+          await b.announce(self, sk.seal.name, 'seal');
+          const target = await b.io.chooseAlly({
+            title: `${self.name}의 「${sk.seal.name}」`,
+            desc: '침묵을 받을 아군을 고르세요. 이어지는 퀴즈를 맞히면 침묵이 2턴에서 1턴으로 줄어요.',
+            allies: b.aliveAllies(),
+          });
+          if (b.over || !target) return;
+          const ok = await b.askQuiz(target, {
+            kind: 'stats',
+            title: `${target.name} · 침묵 저항 퀴즈`,
+            reward: '정답이면 침묵이 1턴으로 줄어듦',
+          });
+          if (b.over) return;
+          b.addSilence(target, ok ? 1 : 2);
+        } else {
+          const targets = b.randomAllies(2);
+          b.log(`${self.name}의 ${sk.bolt.name}!`);
+          for (const t of targets) b.dealDamage(self, t, 1.0);
+        }
+      },
+    },
+
     // 2-16 보스. 이름은 비즈네르 암호(Vigenère cipher)에서 따왔다.
     vigenere: {
       name: '암호의 대마녀 비즈네르',

@@ -2,6 +2,7 @@
 // MR.Quiz.make(kind, difficulty) → { kind, html, figure, hint, inputMode, answerText, check(input) → { correct, note } }
 //
 // 퀴즈 종류: addSub(일반 공격) / multiply(카가리) / fraction(아쿠아마린) / division(프리시아) / geometry(히나)
+//            stats(자료와 통계 · 보스 라파의 침묵 저항 퀴즈)
 // 1~2학년 교육과정에는 분수·나눗셈이 없어서 비슷한 역할의 단원(가르기·모으기, 곱셈구구 거꾸로)으로 대신한다.
 (function (MR) {
   const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -15,6 +16,11 @@
   const hasBatchim = (n) => [0, 1, 3, 6, 7, 8].includes(n % 10) || n === 10;
   const eun = (n) => `${n}${hasBatchim(n) ? '은' : '는'}`;
   const gwa = (n) => `${n}${hasBatchim(n) ? '과' : '와'}`;
+  // 낱말 뒤 조사: 마지막 글자에 받침이 있으면 '을', 없으면 '를'
+  const eul = (w) => {
+    const code = w.charCodeAt(w.length - 1) - 0xac00;
+    return `${w}${code >= 0 && code < 11172 && code % 28 ? '을' : '를'}`;
+  };
 
   const DIFFICULTIES = [
     { id: 'g12', name: '초등 1~2학년' },
@@ -30,6 +36,7 @@
       fraction: '가르기·모으기와 세 수의 계산',
       division: '곱셈구구로 □ 구하기',
       geometry: '도형의 변·꼭짓점과 길이',
+      stats: '표와 그래프 읽기',
     },
     g56: {
       addSub: '자연수의 덧셈/뺄셈',
@@ -37,6 +44,7 @@
       fraction: '분수의 덧셈/뺄셈',
       division: '자연수의 나눗셈',
       geometry: '도형의 둘레/넓이',
+      stats: '평균과 자료 해석',
     },
     m3: {
       addSub: '제곱근의 덧셈/뺄셈',
@@ -44,6 +52,7 @@
       fraction: '삼각비와 유리수의 계산',
       division: '인수분해와 이차방정식',
       geometry: '원의 성질과 피타고라스 정리',
+      stats: '대푯값과 산포도',
     },
   };
 
@@ -236,6 +245,23 @@
     },
   };
 
+  // ---------- 자료 표 ----------
+  // rows: [[머리, 값], ...] 를 가로 표로 그린다. 값 대신 '○' 개수로 그리면 그래프처럼 보인다
+  function dataTable(head, rows, asCircles) {
+    const cell = (v) => (asCircles ? `<span class="tally">${'○'.repeat(v)}</span>` : v);
+    return `<table class="quiz-table"><tr><th>${head[0]}</th>${rows.map((r) => `<th>${r[0]}</th>`).join('')}</tr>` +
+      `<tr><th>${head[1]}</th>${rows.map((r) => `<td>${cell(r[1])}</td>`).join('')}</tr></table>`;
+  }
+
+  function sample(arr, n) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = rand(0, i);
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a.slice(0, n);
+  }
+
   // ---------- 초등 1~2학년 ----------
   const g12 = {
     addSub() {
@@ -298,6 +324,25 @@
         figure: figures.rect(w, h),
         hint: '숫자만 입력하세요. (단위: cm)',
       });
+    },
+    // 표와 ○ 그래프 읽기
+    stats() {
+      const names = sample(['사과', '바나나', '포도', '딸기', '귤'], 4);
+      let counts;
+      do { counts = names.map(() => rand(1, 8)); } while (new Set(counts).size < 4);
+      const rows = names.map((n, i) => [n, counts[i]]);
+      const asCircles = Math.random() < 0.5;
+      const figure = dataTable(['과일', '학생 수'], rows, asCircles);
+      const hint = '숫자만 입력하세요. (단위: 명)';
+      const r = Math.random();
+      if (r < 0.35) {
+        return intQuiz('stats', '좋아하는 과일을 조사했어요.<br><small>조사한 학생은 모두 몇 명일까요?</small>', counts.reduce((a, b) => a + b, 0), { figure, hint });
+      }
+      if (r < 0.65) {
+        return intQuiz('stats', '가장 많은 학생이 좋아하는 과일은<br><small>몇 명이 좋아할까요?</small>', Math.max(...counts), { figure, hint });
+      }
+      const [i, j] = sample([0, 1, 2, 3], 2).sort((a, b) => counts[b] - counts[a]);
+      return intQuiz('stats', `${eul(names[i])} 좋아하는 학생은 ${names[j]}보다<br><small>몇 명 더 많을까요?</small>`, counts[i] - counts[j], { figure, hint });
     },
   };
 
@@ -393,6 +438,39 @@
       ];
       const q = pick(kinds)();
       return intQuiz('geometry', q.text, q.ans, { figure: q.fig, hint: `숫자만 입력하세요. (단위: ${q.unit})` });
+    },
+    // 평균, 평균으로 모르는 값 구하기, 비율
+    stats() {
+      const people = sample(['민지', '서준', '하윤', '도윤', '지아', '시우'], rand(4, 5));
+      const mean = rand(6, 18) * 5;
+      let values;
+      do {
+        values = people.map(() => mean + rand(-12, 12));
+        const diff = mean * people.length - values.reduce((a, b) => a + b, 0);
+        values[values.length - 1] += diff;
+      } while (values.some((v) => v < 10 || v > 100));
+      const r = Math.random();
+      if (r < 0.45) {
+        return intQuiz('stats', '수학 점수의 평균은 몇 점일까요?', mean, {
+          figure: dataTable(['이름', '점수'], people.map((p, i) => [p, values[i]])),
+          hint: '숫자만 입력하세요. (단위: 점)',
+        });
+      }
+      if (r < 0.8) {
+        const k = rand(0, people.length - 1);
+        return intQuiz('stats', `점수의 평균이 ${mean}점일 때<br><small>${people[k]}의 점수는 몇 점일까요?</small>`, values[k], {
+          figure: dataTable(['이름', '점수'], people.map((p, i) => [p, i === k ? '□' : values[i]])),
+          hint: '숫자만 입력하세요. (단위: 점)',
+        });
+      }
+      const total = pick([20, 25, 40, 50, 200, 300]);
+      const pct = pick([10, 20, 25, 30, 40, 50, 60, 75]);
+      const ans = (total * pct) / 100;
+      if (!Number.isInteger(ans)) return this.stats();
+      const thing = pick(['축구', '피구', '줄넘기', '수영']);
+      return intQuiz('stats', `학생 ${total}명 중 ${pct}%가 ${eul(thing)} 좋아해요.<br><small>${eul(thing)} 좋아하는 학생은 몇 명일까요?</small>`, ans, {
+        hint: '숫자만 입력하세요. (단위: 명)',
+      });
     },
   };
 
@@ -520,6 +598,47 @@
       }
       return intQuiz('geometry', '변 BC 의 길이 x 는 몇 cm일까요?', a, { figure: figures.rightTriangle('x', `${b} cm`, `${c} cm`, false), hint });
     },
+    // 대푯값(중앙값, 최빈값)과 산포도(분산, 표준편차)
+    stats() {
+      const show = (arr) => `<div class="quiz-data">자료: ${arr.join(', ')}</div>`;
+      const r = Math.random();
+      if (r < 0.3) {
+        // 짝수 개 자료의 중앙값 (가운데 두 값의 평균이 정수가 되도록)
+        const n = pick([6, 8]);
+        let vals;
+        do {
+          vals = Array.from({ length: n }, () => rand(1, 40));
+          vals.sort((a, b) => a - b);
+        } while ((vals[n / 2 - 1] + vals[n / 2]) % 2);
+        const median = (vals[n / 2 - 1] + vals[n / 2]) / 2;
+        return intQuiz('stats', '다음 자료의 중앙값은?', median, { figure: show(sample(vals, n)), hint: '숫자만 입력하세요.' });
+      }
+      if (r < 0.45) {
+        const mode = rand(2, 30);
+        const others = sample(Array.from({ length: 30 }, (_, i) => i + 1).filter((v) => v !== mode), 5);
+        const vals = sample([mode, mode, mode, ...others.slice(0, 2), others[2], others[2], ...others.slice(3)], 10);
+        return intQuiz('stats', '다음 자료의 최빈값은?', mode, { figure: show(vals), hint: '숫자만 입력하세요.' });
+      }
+      // 평균과 분산이 정수가 되는 자료 (편차의 합 0)
+      const askSd = r >= 0.75;
+      for (let tries = 0; tries < 500; tries++) {
+        const n = pick([4, 5]);
+        const dev = Array.from({ length: n - 1 }, () => rand(-6, 6));
+        dev.push(-dev.reduce((a, b) => a + b, 0));
+        if (Math.abs(dev[n - 1]) > 8) continue;
+        const ss = dev.reduce((a, d) => a + d * d, 0);
+        if (ss === 0 || ss % n) continue;
+        const variance = ss / n;
+        const sd = Math.sqrt(variance);
+        if (askSd && !Number.isInteger(sd)) continue;
+        const mean = rand(5, 20);
+        const vals = dev.map((d) => mean + d);
+        return askSd
+          ? intQuiz('stats', '다음 자료의 표준편차는?', sd, { figure: show(vals), hint: '숫자만 입력하세요. (평균을 먼저 구해 보세요)' })
+          : intQuiz('stats', '다음 자료의 분산은?', variance, { figure: show(vals), hint: '숫자만 입력하세요. (평균을 먼저 구해 보세요)' });
+      }
+      return this.stats();
+    },
   };
 
   const GENERATORS = { g12, g56, m3 };
@@ -536,9 +655,10 @@
       return d ? d.name : '';
     },
     make(kind, difficulty = DEFAULT) {
-      const gen = (GENERATORS[difficulty] || GENERATORS[DEFAULT])[kind];
+      const table = GENERATORS[difficulty] || GENERATORS[DEFAULT];
+      const gen = table[kind];
       if (!gen) throw new Error(`알 수 없는 퀴즈 종류: ${kind}`);
-      return gen();
+      return gen.call(table);
     },
     _parseFraction: parseFraction,
   };
