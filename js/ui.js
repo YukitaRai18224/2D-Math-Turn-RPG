@@ -544,23 +544,49 @@
       modal().innerHTML = `
         <div class="overlay">
           <div class="quiz-card" style="--c:${color}">
-            <div class="quiz-head">
-              ${unit ? `<img src="${unit.def.image}" alt="">` : ''}
-              <div><div class="quiz-title">${title}</div><div class="quiz-reward">${reward}</div></div>
+            <div class="quiz-main">
+              <div class="quiz-head">
+                ${unit ? `<img src="${unit.def.image}" alt="">` : ''}
+                <div><div class="quiz-title">${title}</div><div class="quiz-reward">${reward}</div></div>
+                <button type="button" class="pad-toggle" aria-pressed="false" title="손으로 풀이를 적을 수 있는 연습장">📝 연습장</button>
+              </div>
+              <div class="quiz-q">${quiz.html}</div>
+              ${quiz.figure || ''}
+              <form class="quiz-form" autocomplete="off">
+                <input name="answer" inputmode="${quiz.inputMode}" autocomplete="off" aria-label="정답 입력" />
+                <button class="btn primary" type="submit">확인</button>
+              </form>
+              <div class="quiz-hint">${quiz.hint}</div>
+              <div class="quiz-result" aria-live="polite"></div>
             </div>
-            <div class="quiz-q">${quiz.html}</div>
-            ${quiz.figure || ''}
-            <form class="quiz-form" autocomplete="off">
-              <input name="answer" inputmode="${quiz.inputMode}" autocomplete="off" aria-label="정답 입력" />
-              <button class="btn primary" type="submit">확인</button>
-            </form>
-            <div class="quiz-hint">${quiz.hint}</div>
-            <div class="quiz-result" aria-live="polite"></div>
+            <div class="quiz-pad" hidden></div>
           </div>
         </div>`;
+      const card = modal().querySelector('.quiz-card');
       const form = modal().querySelector('form');
       const input = form.elements.answer;
-      setTimeout(() => input.focus(), 30);
+      // 터치 화면에서는 입력칸에 바로 초점을 주면 키보드가 연습장을 가리므로, 마우스 환경에서만 자동 초점
+      const finePointer = !window.matchMedia || window.matchMedia('(pointer: fine)').matches;
+      if (finePointer) setTimeout(() => input.focus(), 30);
+
+      // 연습장 (열어 둔 상태는 다음 퀴즈에도 유지)
+      const padEl = modal().querySelector('.quiz-pad');
+      const toggle = modal().querySelector('.pad-toggle');
+      let pad = null;
+      const setPad = (open) => {
+        padEl.hidden = !open;
+        card.classList.toggle('with-pad', open);
+        toggle.setAttribute('aria-pressed', String(open));
+        toggle.classList.toggle('on', open);
+        if (open && !pad) pad = MR.Scratchpad.mount(padEl);
+      };
+      setPad(MR.Scratchpad.prefOpen());
+      toggle.addEventListener('click', () => {
+        const open = padEl.hidden;
+        MR.Scratchpad.setPref(open);
+        setPad(open);
+        if (finePointer) input.focus();
+      });
 
       form.addEventListener('submit', (ev) => {
         ev.preventDefault();
@@ -574,6 +600,7 @@
           ? `정답! ${res.note ? `<small>${res.note}</small>` : ''}`
           : `아쉬워요. 정답은 <b>${quiz.answerText}</b>`;
         setTimeout(() => {
+          if (pad) pad.destroy();
           closeModal();
           resolve(res.correct);
         }, res.correct ? MR.CONFIG.DELAY.quizCorrect + (res.note ? 900 : 0) : MR.CONFIG.DELAY.quizWrong);

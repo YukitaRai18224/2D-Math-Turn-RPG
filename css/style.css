@@ -345,6 +345,32 @@ button { font: inherit; color: inherit; }
 }
 .quiz-card { border-top: 6px solid var(--c); }
 .quiz-head { display: flex; gap: 12px; align-items: center; }
+.quiz-head > div { flex: 1; }
+.pad-toggle {
+  flex: none; align-self: flex-start; border: 1px solid var(--line); background: var(--panel); border-radius: 999px;
+  padding: 5px 11px; font-size: 13px; font-weight: 700; cursor: pointer; color: var(--muted);
+}
+.pad-toggle.on { background: var(--c); border-color: var(--c); color: #fff; }
+
+/* 연습장을 켜면 퀴즈 창이 넓어지고 오른쪽에 모눈 캔버스가 붙는다 */
+.quiz-card.with-pad { width: min(1000px, 100%); display: grid; grid-template-columns: minmax(300px, 400px) 1fr; gap: 18px; align-items: stretch; }
+.quiz-pad { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.quiz-pad[hidden] { display: none; }
+.pad-toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pad-spacer { flex: 1; }
+.pad-tool {
+  display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: var(--panel);
+  border-radius: 8px; padding: 5px 9px; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.pad-tool i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.pad-tool.on { border-color: var(--c); box-shadow: 0 0 0 2px var(--c); }
+.pad-canvas {
+  width: 100%; flex: 1; min-height: 340px; border-radius: 12px; border: 1px solid var(--line); cursor: crosshair;
+  touch-action: none; background-color: #fffef8;
+  background-image: linear-gradient(#e9e4d8 1px, transparent 1px), linear-gradient(90deg, #e9e4d8 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
 .quiz-head img { width: 54px; height: 54px; border-radius: 50%; object-fit: cover; object-position: 50% 10%; border: 2px solid var(--c); }
 .quiz-title { font-weight: 800; }
 .quiz-reward { font-size: 13px; color: var(--muted); }
@@ -406,6 +432,10 @@ button { font: inherit; color: inherit; }
 @media (max-width: 720px) {
   .equip-layout { grid-template-columns: 1fr; }
   .equip-char img { width: 110px; height: 140px; }
+}
+@media (max-width: 760px) {
+  .quiz-card.with-pad { grid-template-columns: 1fr; max-height: calc(100vh - 32px); overflow-y: auto; }
+  .pad-canvas { min-height: 240px; }
 }
 @media (max-width: 480px) {
   .screen { padding: 12px; }
