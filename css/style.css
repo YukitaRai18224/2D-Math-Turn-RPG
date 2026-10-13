@@ -46,6 +46,7 @@ button { font: inherit; color: inherit; }
 .topbar h1 { font-size: 22px; margin: 0; flex: 1; }
 .potions { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; }
 .notice { background: #fff7e0; border: 1px solid #f0dca6; border-radius: 10px; padding: 10px 14px; }
+.notice.gift { background: #eef6ff; border-color: #bcd6f5; }
 
 /* ---------- 스테이지 선택 ---------- */
 .party-strip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }

@@ -10,11 +10,12 @@
       equip[k] = {};
       for (const slot of MR.EQUIP_SLOTS) equip[k][slot.id] = 0;
     }
-    return { cleared: {}, potions: 0, stones: 0, levels, equip, difficulty: MR.Quiz.DEFAULT };
+    return { cleared: {}, potions: 0, stones: 0, levels, equip, difficulty: MR.Quiz.DEFAULT, stoneBackfill: true };
   }
 
   MR.Progress = {
     state: defaults(),
+    backfillNotice: 0, // 이번 접속에서 지급한 소급 강화석 (화면 안내용)
 
     load() {
       let saved = null;
@@ -34,6 +35,20 @@
       };
       const savedEquip = (saved && saved.equip) || {};
       for (const k of MR.PARTY_ORDER) this.state.equip[k] = { ...d.equip[k], ...(savedEquip[k] || {}) };
+
+      // 장비 업데이트 전에 1-8 이후 스테이지를 클리어한 저장 데이터는 그때 받지 못한 강화석을 한 번 지급한다
+      this.state.stoneBackfill = !!(saved && saved.stoneBackfill);
+      this.backfillNotice = 0;
+      if (saved && !this.state.stoneBackfill) {
+        const from = MR.STAGES.findIndex((st) => st.id === MR.CONFIG.EQUIP_UNLOCK_STAGE);
+        const owed = MR.STAGES.slice(from)
+          .filter((st) => this.isCleared(st.id))
+          .reduce((sum, st) => sum + MR.CONFIG.stoneReward(st), 0);
+        this.state.stones += owed;
+        this.state.stoneBackfill = true;
+        this.backfillNotice = owed;
+        this.save();
+      }
     },
 
     save() {

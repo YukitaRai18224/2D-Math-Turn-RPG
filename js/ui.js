@@ -122,6 +122,7 @@
           <div class="potions" title="경험치 물약">🧪 경험치 물약 <b>${s.potions}</b></div>
           ${P().isEquipUnlocked() ? `<div class="potions" title="강화석">💎 강화석 <b>${s.stones}</b></div>` : ''}
         </header>
+        ${P().backfillNotice ? `<p class="notice gift">🎁 장비 업데이트 전에 클리어한 스테이지의 강화석 <b>💎 ${P().backfillNotice}개</b>를 지급했어요.</p>` : ''}
         <section class="party-strip">
           ${MR.PARTY_ORDER.map((k) => {
             const c = MR.CHARACTERS[k];
