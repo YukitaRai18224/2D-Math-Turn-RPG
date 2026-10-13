@@ -9,6 +9,7 @@
   let pendingAction = null; // 행동 선택을 기다리는 중이면 resolve 함수
   let logLines = [];
   let selectedChapter = null; // 스테이지 선택 화면에서 보고 있는 챕터
+  let equipChar = null; // 장비 화면에서 보고 있는 캐릭터
 
   // ---------- 공통 ----------
   function bar(cls, value, max, text) {
@@ -119,13 +120,17 @@
         <header class="topbar">
           <h1>수학 턴제 RPG</h1>
           <div class="potions" title="경험치 물약">🧪 경험치 물약 <b>${s.potions}</b></div>
+          ${P().isEquipUnlocked() ? `<div class="potions" title="강화석">💎 강화석 <b>${s.stones}</b></div>` : ''}
         </header>
         <section class="party-strip">
           ${MR.PARTY_ORDER.map((k) => {
             const c = MR.CHARACTERS[k];
             return `<div class="party-face" style="--c:${c.color}"><img src="${c.image}" alt=""><span>${c.name}<small>Lv.${P().level(k)}</small></span></div>`;
           }).join('')}
-          <button class="btn" data-act="party">파티 · 레벨업${P().isLevelUpUnlocked() ? '' : ' 🔒'}</button>
+          <div class="party-buttons">
+            <button class="btn" data-act="party">파티 · 레벨업${P().isLevelUpUnlocked() ? '' : ' 🔒'}</button>
+            <button class="btn" data-act="equip" title="${P().isEquipUnlocked() ? '' : `${MR.CONFIG.EQUIP_UNLOCK_STAGE} 클리어 시 열림`}">장비 강화${P().isEquipUnlocked() ? '' : ' 🔒'}</button>
+          </div>
         </section>
         <section class="difficulty">
           <h2>문제 난이도</h2>
@@ -162,14 +167,17 @@
   function showParty() {
     const unlocked = P().isLevelUpUnlocked();
     const diff = P().state.difficulty;
+    const equipOn = P().isEquipUnlocked();
     const cards = MR.PARTY_ORDER.map((k) => {
       const c = MR.CHARACTERS[k];
       const lv = P().level(k);
+      const eq = MR.equipBonus(P().state.equip[k]);
+      const eqCell = (key) => (equipOn ? `<td class="equip">${eq[key] ? `+${eq[key]}` : ''}</td>` : '');
       const now = MR.statsAtLevel(c.base, lv);
       const cost = P().levelUpCost(k);
       const next = cost !== null ? MR.statsAtLevel(c.base, lv + 1) : null;
       const row = (label, key) =>
-        `<tr><th>${label}</th><td>${now[key]}</td><td class="next">${next ? `→ ${next[key]}` : ''}</td></tr>`;
+        `<tr><th>${label}</th><td>${now[key]}</td><td class="next">${next ? `→ ${next[key]}` : ''}</td>${eqCell(key)}</tr>`;
       let btn;
       if (!unlocked) btn = `<button class="btn" disabled>🔒 ${MR.CONFIG.LEVEL_UNLOCK_STAGE} 클리어 시 해금</button>`;
       else if (cost === null) btn = `<button class="btn" disabled>최대 레벨</button>`;
@@ -182,8 +190,9 @@
             <h3>${c.name} <small>${c.role}</small> <span class="lv">Lv.${lv}</span></h3>
             <table class="stats">
               ${row('최대 체력', 'hp')}${row('공격력', 'atk')}${row('방어력', 'def')}
-              <tr><th>속도</th><td>${now.spd}</td><td></td></tr>
+              <tr><th>속도</th><td>${now.spd}</td><td></td>${eqCell('spd')}</tr>
             </table>
+            ${equipOn ? '<p class="equip-note">파란 숫자는 장비로 오른 능력치예요.</p>' : ''}
             ${btn}
             <dl class="kit">
               <dt>일반 공격</dt><dd>선택한 적에게 공격력 100% 피해. <em>${MR.Quiz.label('addSub', diff)} 퀴즈</em> 정답 시 스킬 포인트 +1</dd>
@@ -205,6 +214,73 @@
         </header>
         ${unlocked ? '' : `<p class="notice">레벨업 기능은 스테이지 ${MR.CONFIG.LEVEL_UNLOCK_STAGE}을 클리어하면 열립니다. 물약은 미리 모아둘 수 있어요.</p>`}
         <div class="char-grid">${cards}</div>
+      </div>`;
+  }
+
+  // ---------- 장비 강화 ----------
+  function showEquip(flash) {
+    const unlocked = P().isEquipUnlocked();
+    if (!equipChar) equipChar = MR.PARTY_ORDER[0];
+    const k = equipChar;
+    const c = MR.CHARACTERS[k];
+    const lv = P().level(k);
+    const base = MR.statsAtLevel(c.base, lv);
+    const eq = MR.equipBonus(P().state.equip[k]);
+
+    const tabs = MR.PARTY_ORDER.map((key) => {
+      const ch = MR.CHARACTERS[key];
+      const total = MR.EQUIP_SLOTS.reduce((sum, sl) => sum + P().enhanceLevel(key, sl.id), 0);
+      return `
+        <button class="equip-tab ${key === k ? 'on' : ''}" data-act="equip-char" data-key="${key}" style="--c:${ch.color}">
+          <img src="${ch.image}" alt=""><span>${ch.name}<small>강화 합계 +${total}</small></span>
+        </button>`;
+    }).join('');
+
+    const slots = MR.EQUIP_SLOTS.map((sl) => {
+      const elv = P().enhanceLevel(k, sl.id);
+      const cost = P().enhanceCost(k, sl.id);
+      const now = MR.equipValue(sl, elv);
+      const next = cost !== null ? MR.equipValue(sl, elv + 1) : null;
+      let btn;
+      if (!unlocked) btn = `<button class="btn" disabled>🔒</button>`;
+      else if (cost === null) btn = `<button class="btn" disabled>최대 강화</button>`;
+      else btn = `<button class="btn primary" data-act="enhance" data-slot="${sl.id}" ${P().canEnhance(k, sl.id) ? '' : 'disabled'}>강화 (💎 ${cost})</button>`;
+      const pct = (elv / MR.CONFIG.MAX_ENHANCE) * 100;
+      return `
+        <div class="equip-slot ${flash === sl.id ? 'flash' : ''} ${elv >= MR.CONFIG.MAX_ENHANCE ? 'maxed' : ''}">
+          <div class="equip-icon">${sl.icon}</div>
+          <div class="equip-info">
+            <div class="equip-name"><small>${sl.name}</small> ${MR.EQUIP_NAMES[k][sl.id]} <b class="plus">+${elv}</b></div>
+            <div class="equip-stat">${sl.statName} <b>+${now}</b>${next !== null ? ` <span class="next">→ +${next}</span>` : ''}</div>
+            <div class="enh-bar"><i style="width:${pct}%"></i></div>
+          </div>
+          ${btn}
+        </div>`;
+    }).join('');
+
+    const statRow = (label, key) => `<tr><th>${label}</th><td>${base[key]}</td><td class="equip">${eq[key] ? `+${eq[key]}` : ''}</td><td><b>${base[key] + eq[key]}</b></td></tr>`;
+
+    app().innerHTML = `
+      <div class="screen equip-screen">
+        <header class="topbar">
+          <button class="btn" data-act="map">← 스테이지 선택</button>
+          <h1>장비 강화</h1>
+          <div class="potions" title="강화석">💎 강화석 <b>${P().state.stones}</b></div>
+        </header>
+        ${unlocked ? '' : `<p class="notice">장비 강화는 스테이지 ${MR.CONFIG.EQUIP_UNLOCK_STAGE}을 클리어하면 열립니다. 그 뒤로 스테이지를 클리어할 때마다 강화석을 얻어요.</p>`}
+        <nav class="equip-tabs">${tabs}</nav>
+        <div class="equip-layout" style="--c:${c.color}">
+          <aside class="equip-char">
+            <img src="${c.image}" alt="${c.name}">
+            <h3>${c.name} <small>Lv.${lv}</small></h3>
+            <table class="stats equip-total">
+              <tr><th></th><td>레벨</td><td>장비</td><td>합계</td></tr>
+              ${statRow('최대 체력', 'hp')}${statRow('공격력', 'atk')}${statRow('방어력', 'def')}${statRow('속도', 'spd')}
+            </table>
+          </aside>
+          <div class="equip-slots">${slots}</div>
+        </div>
+        <p class="equip-note">강화는 실패하지 않아요. 최대 +${MR.CONFIG.MAX_ENHANCE}까지 강화할 수 있어요.</p>
       </div>`;
   }
 
@@ -241,7 +317,10 @@
     const stage = MR.STAGES[index];
     selectedChapter = Number(stage.id.split('-')[0]);
     logLines = [];
-    battle = new MR.Battle(stage, P().state.levels, io, { difficulty: P().state.difficulty });
+    battle = new MR.Battle(stage, P().state.levels, io, {
+      difficulty: P().state.difficulty,
+      equip: P().isEquipUnlocked() ? P().state.equip : null,
+    });
     const b = battle;
 
     app().innerHTML = `
@@ -544,10 +623,13 @@
       const hasNext = currentStageIndex + 1 < MR.STAGES.length;
       body = `
         <p>경험치 물약 <b>🧪 +${r.reward}</b> (보유 ${P().state.potions})${r.firstClear ? '' : '<br><small class="repeat-note">반복 클리어 보상</small>'}</p>
-        ${r.levelUpJustUnlocked ? '<p class="unlock">🎉 레벨업 기능이 열렸어요! 「파티 · 레벨업」에서 캐릭터를 강화하세요.</p>' : ''}`;
+        ${r.stones ? `<p>강화석 <b>💎 +${r.stones}</b> (보유 ${P().state.stones})</p>` : ''}
+        ${r.levelUpJustUnlocked ? '<p class="unlock">🎉 레벨업 기능이 열렸어요! 「파티 · 레벨업」에서 캐릭터를 강화하세요.</p>' : ''}
+        ${r.equipJustUnlocked ? '<p class="unlock">🎉 장비 강화가 열렸어요! 「장비 강화」에서 강화석으로 장비를 강화하세요.</p>' : ''}`;
       buttons = `
         ${hasNext ? '<button class="btn primary" data-act="next">다음 스테이지</button>' : ''}
         ${r.levelUpJustUnlocked ? '<button class="btn" data-act="party">파티 · 레벨업</button>' : ''}
+        ${r.equipJustUnlocked ? '<button class="btn" data-act="equip">장비 강화</button>' : ''}
         <button class="btn" data-act="retry">다시 하기</button>
         <button class="btn" data-act="map">스테이지 선택</button>`;
     } else {
@@ -598,6 +680,17 @@
           P().reset();
           showMap();
         }
+        break;
+      case 'equip':
+        closeModal();
+        showEquip();
+        break;
+      case 'equip-char':
+        equipChar = el.dataset.key;
+        showEquip();
+        break;
+      case 'enhance':
+        if (P().enhance(equipChar, el.dataset.slot)) showEquip(el.dataset.slot);
         break;
       case 'levelup':
         if (P().levelUp(el.dataset.key)) showParty();

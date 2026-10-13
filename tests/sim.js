@@ -10,7 +10,7 @@ const assert = require('assert');
 
 const ctx = vm.createContext({ console, Math });
 ctx.globalThis = ctx;
-for (const f of ['config.js', 'data/characters.js', 'data/monsters.js', 'data/stages.js', 'quiz.js', 'battle.js']) {
+for (const f of ['config.js', 'data/characters.js', 'data/equipment.js', 'data/monsters.js', 'data/stages.js', 'quiz.js', 'battle.js']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, { filename: f });
 }
 const MR = ctx.MR;

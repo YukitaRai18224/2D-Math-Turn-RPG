@@ -1,11 +1,16 @@
-// 진행 상황 저장 (브라우저 localStorage): 클리어한 스테이지, 경험치 물약, 캐릭터 레벨
+// 진행 상황 저장 (브라우저 localStorage): 클리어한 스테이지, 경험치 물약, 캐릭터 레벨, 장비 강화, 강화석
 (function (MR) {
   const KEY = 'mathrpg.save.v1';
 
   function defaults() {
     const levels = {};
-    for (const k of MR.PARTY_ORDER) levels[k] = 1;
-    return { cleared: {}, potions: 0, levels, difficulty: MR.Quiz.DEFAULT };
+    const equip = {};
+    for (const k of MR.PARTY_ORDER) {
+      levels[k] = 1;
+      equip[k] = {};
+      for (const slot of MR.EQUIP_SLOTS) equip[k][slot.id] = 0;
+    }
+    return { cleared: {}, potions: 0, stones: 0, levels, equip, difficulty: MR.Quiz.DEFAULT };
   }
 
   MR.Progress = {
@@ -24,7 +29,11 @@
         potions: (saved && saved.potions) || 0,
         levels: { ...d.levels, ...((saved && saved.levels) || {}) },
         difficulty: (saved && saved.difficulty) || d.difficulty,
+        stones: (saved && saved.stones) || 0,
+        equip: d.equip,
       };
+      const savedEquip = (saved && saved.equip) || {};
+      for (const k of MR.PARTY_ORDER) this.state.equip[k] = { ...d.equip[k], ...(savedEquip[k] || {}) };
     },
 
     save() {
@@ -60,6 +69,34 @@
       return this.isCleared(MR.CONFIG.LEVEL_UNLOCK_STAGE);
     },
 
+    isEquipUnlocked() {
+      return this.isCleared(MR.CONFIG.EQUIP_UNLOCK_STAGE);
+    },
+
+    enhanceLevel(key, slotId) {
+      return this.state.equip[key][slotId] || 0;
+    },
+
+    // 다음 강화에 필요한 강화석 수 (최대 강화면 null)
+    enhanceCost(key, slotId) {
+      const lv = this.enhanceLevel(key, slotId);
+      return lv >= MR.CONFIG.MAX_ENHANCE ? null : MR.CONFIG.enhanceCost(lv);
+    },
+
+    canEnhance(key, slotId) {
+      const cost = this.enhanceCost(key, slotId);
+      return this.isEquipUnlocked() && cost !== null && this.state.stones >= cost;
+    },
+
+    // 강화는 실패하지 않는다
+    enhance(key, slotId) {
+      if (!this.canEnhance(key, slotId)) return false;
+      this.state.stones -= this.enhanceCost(key, slotId);
+      this.state.equip[key][slotId] = this.enhanceLevel(key, slotId) + 1;
+      this.save();
+      return true;
+    },
+
     level(key) {
       return this.state.levels[key] || 1;
     },
@@ -92,12 +129,22 @@
 
     recordClear(stage) {
       const wasUnlocked = this.isLevelUpUnlocked();
+      const equipWasUnlocked = this.isEquipUnlocked();
       const firstClear = !this.isCleared(stage.id);
       const reward = this.rewardFor(stage);
       this.state.cleared[stage.id] = true;
       this.state.potions += reward;
+      // 강화석은 장비가 열린 뒤부터 (장비를 여는 1-8 클리어 포함) 받는다
+      const stones = this.isEquipUnlocked() ? MR.CONFIG.stoneReward(stage) : 0;
+      this.state.stones += stones;
       this.save();
-      return { reward, firstClear, levelUpJustUnlocked: !wasUnlocked && this.isLevelUpUnlocked() };
+      return {
+        reward,
+        stones,
+        firstClear,
+        levelUpJustUnlocked: !wasUnlocked && this.isLevelUpUnlocked(),
+        equipJustUnlocked: !equipWasUnlocked && this.isEquipUnlocked(),
+      };
     },
   };
 })((globalThis.MR = globalThis.MR || {}));

@@ -25,6 +25,18 @@
       return 1 + Math.floor(level / 3);
     },
 
+    // 장비 강화
+    EQUIP_UNLOCK_STAGE: '1-8',
+    MAX_ENHANCE: 20,
+    enhanceCost(level) {
+      // +level → +level+1 에 필요한 강화석 수
+      return 1 + Math.floor(level / 2);
+    },
+    stoneReward(stage) {
+      // 장비가 열린 뒤 스테이지를 클리어할 때마다 받는 강화석 (반복 클리어도 같은 양)
+      return 1 + Math.ceil(stage.reward / 2);
+    },
+
     // 이미 클리어한 스테이지를 다시 클리어하면 물약 보상이 줄어든다 (최소 REPEAT_REWARD_MIN 개)
     REPEAT_REWARD_PENALTY: 4,
     REPEAT_REWARD_MIN: 1,

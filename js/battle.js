@@ -6,6 +6,7 @@
 //   chooseAlly({ title, desc, allies }) → Promise<unit>       (플레이어가 아군 한 명을 고름)
 //
 // options.difficulty: 퀴즈 난이도 (MR.Quiz.DIFFICULTIES 의 id)
+// options.equip: { 캐릭터 key: { weapon: 강화 단계, ... } } (없으면 장비 없음)
 //   delay(ms)           → Promise
 //   update()            화면 갱신
 //   log(text)           전투 기록
@@ -16,12 +17,14 @@
 (function (MR) {
   const ENEMY_LETTERS = 'ABCD';
 
-  function makeAlly(key, level) {
+  function makeAlly(key, level, equipLevels) {
     const def = MR.CHARACTERS[key];
     const s = MR.statsAtLevel(def.base, level);
+    const e = MR.equipBonus(equipLevels);
+    const hp = s.hp + e.hp;
     return {
       uid: `a_${key}`, key, side: 'ally', def, name: def.name, level,
-      maxHp: s.hp, hp: s.hp, baseAtk: s.atk, baseDef: s.def, spd: s.spd,
+      maxHp: hp, hp, baseAtk: s.atk + e.atk, baseDef: s.def + e.def, spd: s.spd + e.spd,
       maxEnergy: def.maxEnergy, energy: Math.round(def.maxEnergy * MR.CONFIG.ENERGY.start),
       buffs: [], alive: true,
     };
@@ -47,7 +50,8 @@
       this.stage = stage;
       this.io = io;
       this.difficulty = options.difficulty || MR.Quiz.DEFAULT;
-      this.allies = MR.PARTY_ORDER.map((k) => makeAlly(k, levels[k] || 1));
+      const equip = options.equip || {};
+      this.allies = MR.PARTY_ORDER.map((k) => makeAlly(k, levels[k] || 1, equip[k]));
       this.enemies = stage.enemies.map((k, i) => {
         // 같은 종류가 여러 마리면 그 종류 안에서의 순서로 A, B, C… 를 붙인다
         const same = stage.enemies.filter((x) => x === k).length;
