@@ -102,6 +102,9 @@ button { font: inherit; color: inherit; }
 .segmented { display: inline-flex; flex-wrap: wrap; background: #ece7df; border-radius: 12px; padding: 4px; gap: 4px; }
 .segmented button { border: 0; background: none; border-radius: 9px; padding: 8px 14px; font-weight: 700; color: var(--muted); cursor: pointer; }
 .segmented button.on { background: var(--accent); color: #fff; box-shadow: var(--shadow); }
+.diff-groups { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.diff-group { display: flex; align-items: center; gap: 8px; }
+.diff-group-name { font-size: 13px; font-weight: 800; color: var(--muted); min-width: 52px; }
 .difficulty-note { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); margin: 10px 0 0; }
 .difficulty-note b { color: var(--c, var(--ink)); margin-right: 3px; }
 .diff-chip { font-size: 12px; font-weight: 700; background: #ece9ff; color: var(--accent); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
@@ -377,6 +380,14 @@ button { font: inherit; color: inherit; }
 .quiz-q { font-size: 28px; line-height: 1.35; font-weight: 800; text-align: center; margin: 18px 0 10px; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
 .frac { display: inline-flex; flex-direction: column; align-items: center; font-size: 0.75em; line-height: 1.1; vertical-align: middle; margin: 0 2px; }
 .frac span:first-child { border-bottom: 2px solid currentColor; padding: 0 4px; }
+.quiz-q sup, .quiz-q sub { font-size: 0.6em; }
+.quiz-q .frac { vertical-align: middle; }
+.quiz-q .rep { position: relative; display: inline-block; }
+.quiz-q .rep::before { content: '·'; position: absolute; left: 50%; top: -0.55em; transform: translateX(-50%); font-weight: 900; }
+.quiz-q .sys { display: inline-block; text-align: left; border-left: 3px solid currentColor; border-radius: 10px 0 0 10px; padding: 2px 0 2px 12px; font-size: 0.85em; line-height: 1.5; }
+.quiz-q .sigma, .quiz-q .integral { display: inline-flex; flex-direction: column; align-items: center; line-height: 1; vertical-align: middle; }
+.quiz-q .sigma small, .quiz-q .integral small { display: block; width: auto; margin: 0; font-size: 0.45em; color: inherit; font-weight: 700; }
+.quiz-q .integral { font-family: ui-serif, Georgia, serif; }
 .quiz-figure { display: block; width: 100%; max-width: 280px; margin: 0 auto 8px; }
 .fig-shape { fill: #e8f0fe; stroke: #3a6fd8; stroke-width: 2.5; }
 .fig-dash { stroke: #e0464b; stroke-width: 2; stroke-dasharray: 5 4; }
@@ -387,6 +398,10 @@ button { font: inherit; color: inherit; }
 .fig-line { stroke: #3a6fd8; stroke-width: 2; }
 .fig-circle { fill: #e8f0fe; stroke: #3a6fd8; stroke-width: 2.5; }
 .fig-dot { fill: #3a6fd8; }
+.fig-inner { fill: none; stroke: #3a6fd8; stroke-width: 2; }
+.fig-grid { stroke: #e2dcd2; stroke-width: 1; }
+.fig-bar { fill: #7aa6e8; }
+.fig-tick { font-size: 11px; fill: var(--muted); font-weight: 600; }
 .quiz-q small { display: block; width: 100%; font-size: 15px; font-weight: 600; color: var(--muted); margin-top: 6px; }
 .quiz-form { display: flex; gap: 8px; }
 .quiz-form input { flex: 1; font-size: 22px; padding: 8px 12px; border: 2px solid var(--line); border-radius: 10px; text-align: center; min-width: 0; }

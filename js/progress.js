@@ -29,7 +29,7 @@
         cleared: (saved && saved.cleared) || d.cleared,
         potions: (saved && saved.potions) || 0,
         levels: { ...d.levels, ...((saved && saved.levels) || {}) },
-        difficulty: (saved && saved.difficulty) || d.difficulty,
+        difficulty: saved && MR.Quiz.DIFFICULTIES.some((x) => x.id === saved.difficulty) ? saved.difficulty : d.difficulty,
         stones: (saved && saved.stones) || 0,
         equip: d.equip,
       };

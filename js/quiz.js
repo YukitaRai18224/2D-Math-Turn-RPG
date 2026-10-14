@@ -1,9 +1,10 @@
-// 수학 퀴즈 생성기. 난이도 3단계 × 퀴즈 종류 5가지.
+// 수학 퀴즈 공통 부분: 정답 판정, 도형 그림, 난이도 목록과 등록.
+// 학년별 문제는 js/quiz/elementary.js, middle.js, high.js 가 MR.Quiz.register 로 등록한다.
 // MR.Quiz.make(kind, difficulty) → { kind, html, figure, hint, inputMode, answerText, check(input) → { correct, note } }
 //
 // 퀴즈 종류: addSub(일반 공격) / multiply(카가리) / fraction(아쿠아마린) / division(프리시아) / geometry(히나)
 //            stats(자료와 통계 · 보스 라파의 침묵 저항 퀴즈)
-// 1~2학년 교육과정에는 분수·나눗셈이 없어서 비슷한 역할의 단원(가르기·모으기, 곱셈구구 거꾸로)으로 대신한다.
+// 이름은 초등 기준 단원에서 따왔고, 학년이 올라가면 같은 자리에 그 학년의 비슷한 역할 단원이 들어간다.
 (function (MR) {
   const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
   const pick = (arr) => arr[rand(0, arr.length - 1)];
@@ -23,38 +24,18 @@
   };
 
   const DIFFICULTIES = [
-    { id: 'g12', name: '초등 1~2학년' },
-    { id: 'g56', name: '초등 5~6학년' },
-    { id: 'm3', name: '중학교 3학년' },
+    { id: 'g12', group: '초등학교', short: '1~2학년', name: '초등 1~2학년' },
+    { id: 'g34', group: '초등학교', short: '3~4학년', name: '초등 3~4학년' },
+    { id: 'g56', group: '초등학교', short: '5~6학년', name: '초등 5~6학년' },
+    { id: 'm1', group: '중학교', short: '1학년', name: '중학교 1학년' },
+    { id: 'm2', group: '중학교', short: '2학년', name: '중학교 2학년' },
+    { id: 'm3', group: '중학교', short: '3학년', name: '중학교 3학년' },
+    { id: 'h1', group: '고등학교', short: '1학년', name: '고등학교 1학년' },
+    { id: 'h2', group: '고등학교', short: '2학년', name: '고등학교 2학년' },
+    { id: 'h3', group: '고등학교', short: '3학년', name: '고등학교 3학년' },
   ];
   const DEFAULT = 'g56';
-
-  const LABELS = {
-    g12: {
-      addSub: '한·두 자리 수의 덧셈/뺄셈',
-      multiply: '곱셈구구',
-      fraction: '가르기·모으기와 세 수의 계산',
-      division: '곱셈구구로 □ 구하기',
-      geometry: '도형의 변·꼭짓점과 길이',
-      stats: '표와 그래프 읽기',
-    },
-    g56: {
-      addSub: '자연수의 덧셈/뺄셈',
-      multiply: '자연수의 곱셈',
-      fraction: '분수의 덧셈/뺄셈',
-      division: '자연수의 나눗셈',
-      geometry: '도형의 둘레/넓이',
-      stats: '평균과 자료 해석',
-    },
-    m3: {
-      addSub: '제곱근의 덧셈/뺄셈',
-      multiply: '곱셈 공식과 제곱근의 곱셈',
-      fraction: '삼각비와 유리수의 계산',
-      division: '인수분해와 이차방정식',
-      geometry: '원의 성질과 피타고라스 정리',
-      stats: '대푯값과 산포도',
-    },
-  };
+  const KINDS = ['addSub', 'multiply', 'fraction', 'division', 'geometry', 'stats'];
 
   // ---------- 정답 판정 ----------
   function parseInteger(input, allowNegative) {
@@ -156,6 +137,51 @@
     };
   }
 
+  // 소수 답 (예: 2.4). 값이 같으면 2.40 처럼 써도 정답
+  const decimalText = (x) => fmt(Number(x.toFixed(6)));
+  function decimalQuiz(kind, html, answer, extra = {}) {
+    return {
+      kind,
+      html,
+      hint: '소수로 입력하세요. (예: 2.5)',
+      inputMode: 'decimal',
+      answerText: decimalText(answer),
+      check(input) {
+        const t = String(input).trim().replace(/[−–]/g, '-').replace(/,/g, '').replace(/\s+/g, '');
+        if (!/^-?(\d+\.?\d*|\.\d+)$/.test(t)) return { correct: false };
+        return { correct: Math.abs(Number(t) - answer) < 1e-9 };
+      },
+      ...extra,
+    };
+  }
+
+  // ---------- 식 표기 도우미 ----------
+  const sup = (v) => `<sup>${v}</sup>`;
+  const sub = (v) => `<sub>${v}</sub>`;
+  // 첫 항: 1x → x, −1x → −x
+  const lead = (n, suffix = '') => (suffix && n === 1 ? suffix : suffix && n === -1 ? `${MINUS}${suffix}` : `${fmt(n)}${suffix}`);
+  // 복소수 a + bi
+  const cplx = (a, b) => {
+    if (b === 0) return fmt(a);
+    if (a === 0) return lead(b, 'i');
+    return `${fmt(a)}${term(b, 'i')}`;
+  };
+  const paren = (n) => (n < 0 ? `(${fmt(n)})` : String(n));
+  const factorial = (n) => (n <= 1 ? 1 : n * factorial(n - 1));
+  const perm = (n, r) => factorial(n) / factorial(n - r);
+  const comb = (n, r) => perm(n, r) / factorial(r);
+  const SQUARE_FREE = [2, 3, 5, 6, 7];
+  const root = (n) => `√${n}`;
+  const coefRoot = (c, n) => `${c === 1 ? '' : c}√${n}`;
+  const blank = '<small>□에 알맞은 수는?</small>';
+  const nonZero = (a, b) => {
+    let v;
+    do { v = rand(a, b); } while (v === 0);
+    return v;
+  };
+  const TRIPLES = [[3, 4, 5], [5, 12, 13], [8, 15, 17], [7, 24, 25]];
+  const degHint = '숫자만 입력하세요. (단위: °)';
+
   // ---------- 도형 그림 ----------
   const SVG_W = 240;
   const SVG_H = 150;
@@ -245,6 +271,93 @@
     },
   };
 
+  // 삼각형의 세 각. labels: [A, B, C] 각 위치에 적을 글자
+  figures.triangleAngles = function (labels) {
+    const A = [40, 120], B = [205, 120], C = [115, 22];
+    return svgWrap(shape([A, B, C]) +
+      label(A[0] + 26, A[1] - 8, labels[0], 'middle', 'fig-angle') +
+      label(B[0] - 26, B[1] - 8, labels[1], 'middle', 'fig-angle') +
+      label(C[0], C[1] + 30, labels[2], 'middle', 'fig-angle'));
+  };
+  // 사각형의 네 각
+  figures.quadAngles = function (labels) {
+    const P = [[45, 120], [200, 120], [185, 30], [70, 18]];
+    const off = [[24, -10], [-24, -10], [-20, 22], [16, 24]];
+    return svgWrap(shape(P) + P.map((p, i) => label(p[0] + off[i][0], p[1] + off[i][1], labels[i], 'middle', 'fig-angle')).join(''));
+  };
+  // 원과 반지름(또는 지름)
+  figures.circleRadius = function (text, diameter) {
+    const cx = 120, cy = 72, r = 58;
+    return svgWrap(`<circle cx="${cx}" cy="${cy}" r="${r}" class="fig-circle"/>` +
+      (diameter ? line(cx - r, cy, cx + r, cy) : line(cx, cy, cx + r, cy)) +
+      `<circle cx="${cx}" cy="${cy}" r="2.5" class="fig-dot"/>` + vertex(cx - 2, cy + 16, 'O') +
+      label(diameter ? cx : cx + r / 2, cy - 8, text));
+  };
+  // 막대그래프. rows: [[이름, 값], ...], 눈금은 step 간격
+  figures.barChart = function (rows, step, unit) {
+    const max = Math.ceil(Math.max(...rows.map((r) => r[1])) / step) * step;
+    const x0 = 34, y0 = 122, h = 104, w = 196;
+    const bw = w / rows.length;
+    let g = '';
+    // 눈금선은 모두 그리고, 숫자는 너무 빽빽하지 않게 일부만 적는다
+    const every = max / step > 8 ? 2 : 1;
+    for (let v = 0, i = 0; v <= max; v += step, i++) {
+      const y = y0 - (v / max) * h;
+      g += `<line x1="${x0}" y1="${y}" x2="${x0 + w}" y2="${y}" class="fig-grid"/>` + (i % every ? '' : label(x0 - 6, y + 4, v, 'end', 'fig-tick'));
+    }
+    rows.forEach(([name, v], i) => {
+      const bh = (v / max) * h;
+      g += `<rect x="${x0 + i * bw + bw * 0.2}" y="${y0 - bh}" width="${bw * 0.6}" height="${bh}" class="fig-bar"/>` +
+        label(x0 + i * bw + bw / 2, y0 + 15, name, 'middle', 'fig-tick');
+    });
+    return svgWrap(g + label(x0 - 6, 10, `(${unit})`, 'start', 'fig-tick'));
+  };
+  // 부채꼴: 반지름 r, 중심각 angle
+  figures.sector = function (r, angle) {
+    const cx = 120, cy = 80, R = 60;
+    const a0 = -90 - angle / 2, a1 = -90 + angle / 2;
+    const pt = (a) => [+(cx + R * Math.cos((a * Math.PI) / 180)).toFixed(1), +(cy + R * Math.sin((a * Math.PI) / 180)).toFixed(1)];
+    const [x0, y0] = pt(a0), [x1, y1] = pt(a1);
+    return svgWrap(`<path d="M${cx} ${cy} L${x0} ${y0} A${R} ${R} 0 ${angle > 180 ? 1 : 0} 1 ${x1} ${y1} Z" class="fig-shape"/>` +
+      label((cx + x0) / 2 - 10, (cy + y0) / 2 + 4, `${r} cm`, 'end') + label(cx, cy + 22, `${angle}°`, 'middle', 'fig-angle'));
+  };
+  // 이등변삼각형 (AB = AC 표시)
+  figures.isosceles = function (apexText, leftText, rightText) {
+    const A = [120, 18], B = [50, 122], C = [190, 122];
+    const tick = (p, q) => {
+      const mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2;
+      return `<line x1="${mx - 5}" y1="${my - 3}" x2="${mx + 5}" y2="${my + 3}" class="fig-mark"/>`;
+    };
+    return svgWrap(shape([A, B, C]) + tick(A, B) + tick(A, C) +
+      vertex(A[0], A[1] - 4, 'A') + vertex(B[0] - 10, B[1] + 4, 'B') + vertex(C[0] + 10, C[1] + 4, 'C') +
+      label(A[0], A[1] + 30, apexText, 'middle', 'fig-angle') + label(B[0] + 28, B[1] - 8, leftText, 'middle', 'fig-angle') +
+      label(C[0] - 28, C[1] - 8, rightText, 'middle', 'fig-angle'));
+  };
+  // 닮은 두 삼각형 ABC ∽ DEF
+  figures.similar = function (ab, bc, de, ef) {
+    const t1 = [[48, 120], [118, 120], [64, 64]], t2 = [[138, 120], [232, 120], [162, 38]];
+    return svgWrap(shape(t1) + shape(t2) +
+      vertex(t1[2][0], t1[2][1] - 6, 'A') + vertex(t1[0][0] - 2, t1[0][1] + 14, 'B') + vertex(t1[1][0] + 4, t1[1][1] + 14, 'C') +
+      vertex(t2[2][0], t2[2][1] - 6, 'D') + vertex(t2[0][0] - 2, t2[0][1] + 14, 'E') + vertex(t2[1][0] + 4, t2[1][1] + 14, 'F') +
+      label(52, 90, ab, 'end') + label(83, 136, bc) + label(146, 76, de, 'end') + label(185, 136, ef));
+  };
+  // 원에 내접하는 사각형 ABCD
+  figures.inscribedQuad = function (aText, cText) {
+    const cx = 120, cy = 72, r = 58;
+    const at = (deg) => [+(cx + r * Math.cos((deg * Math.PI) / 180)).toFixed(1), +(cy + r * Math.sin((deg * Math.PI) / 180)).toFixed(1)];
+    const A = at(200), B = at(110), C = at(-15), D = at(-100);
+    return svgWrap(`<circle cx="${cx}" cy="${cy}" r="${r}" class="fig-circle"/>` + shape([A, B, C, D]).replace('fig-shape', 'fig-inner') +
+      vertex(A[0] - 10, A[1] + 4, 'A') + vertex(B[0], B[1] + 14, 'B') + vertex(C[0] + 10, C[1] + 4, 'C') + vertex(D[0], D[1] - 5, 'D') +
+      label(A[0] + 26, A[1] + 2, aText, 'middle', 'fig-angle') + label(C[0] - 24, C[1] + 6, cText, 'middle', 'fig-angle'));
+  };
+  // 두 변과 그 끼인각
+  figures.sasTriangle = function (b, c, angle) {
+    const A = [50, 120], B = [205, 120], C = angle > 90 ? [10, 40] : [100, 28];
+    return svgWrap(shape([A, B, C]) + vertex(A[0] + 2, A[1] + 15, 'A') + vertex(B[0] + 8, B[1] + 4, 'B') + vertex(C[0], C[1] - 6, 'C') +
+      label((A[0] + B[0]) / 2, A[1] + 16, c) + label((A[0] + C[0]) / 2 - 6, (A[1] + C[1]) / 2, b, 'end') +
+      label(A[0] + 22, A[1] - 8, `${angle}°`, 'middle', 'fig-angle') + label((B[0] + C[0]) / 2 + 8, (B[1] + C[1]) / 2 - 4, 'x', 'start'));
+  };
+
   // ---------- 자료 표 ----------
   // rows: [[머리, 값], ...] 를 가로 표로 그린다. 값 대신 '○' 개수로 그리면 그래프처럼 보인다
   function dataTable(head, rows, asCircles) {
@@ -262,400 +375,31 @@
     return a.slice(0, n);
   }
 
-  // ---------- 초등 1~2학년 ----------
-  const g12 = {
-    addSub() {
-      if (Math.random() < 0.35) {
-        // 한 자리 수 (받아올림/받아내림 포함)
-        const a = rand(2, 9), b = rand(2, 9);
-        if (Math.random() < 0.5) return intQuiz('addSub', `${a} + ${b} = ?`, a + b);
-        const big = a + b;
-        return intQuiz('addSub', `${big} − ${b} = ?`, a);
-      }
-      // 두 자리 수
-      if (Math.random() < 0.5) {
-        const a = rand(11, 88), b = rand(11, 99 - a);
-        return intQuiz('addSub', `${a} + ${b} = ?`, a + b);
-      }
-      const a = rand(30, 99), b = rand(11, a - 5);
-      return intQuiz('addSub', `${a} − ${b} = ?`, a - b);
-    },
-    multiply() {
-      const a = rand(2, 9), b = rand(1, 9);
-      return intQuiz('multiply', `${a} × ${b} = ?`, a * b);
-    },
-    division() {
-      const a = rand(2, 9), b = rand(2, 9);
-      return Math.random() < 0.5
-        ? intQuiz('division', `□ × ${b} = ${a * b}<br><small>□에 알맞은 수는?</small>`, a)
-        : intQuiz('division', `${a} × □ = ${a * b}<br><small>□에 알맞은 수는?</small>`, b);
-    },
-    // 가르기·모으기, 세 수의 덧셈/뺄셈
-    fraction() {
-      const r = Math.random();
-      if (r < 0.35) {
-        const total = rand(5, 10), part = rand(1, total - 1);
-        return intQuiz('fraction', `${eun(total)} ${gwa(part)} □(으)로 가를 수 있어요.<br><small>□에 알맞은 수는?</small>`, total - part);
-      }
-      if (r < 0.6) {
-        const a = rand(1, 9), b = rand(1, 9);
-        const t = a + b;
-        return intQuiz('fraction', `${a} + □ = ${t}<br><small>□에 알맞은 수는?</small>`, b);
-      }
-      const a = rand(2, 9), b = rand(1, 9), c = rand(1, 9);
-      if (Math.random() < 0.5) return intQuiz('fraction', `${a} + ${b} + ${c} = ?`, a + b + c);
-      const big = a + b + c;
-      return intQuiz('fraction', `${big} − ${b} − ${c} = ?`, a);
-    },
-    geometry() {
-      const shapes = [
-        [3, '삼각형'], [4, '사각형'], [5, '오각형'], [6, '육각형'],
-      ];
-      if (Math.random() < 0.6) {
-        const [n, name] = pick(shapes);
-        const what = pick(['변', '꼭짓점']);
-        return intQuiz('geometry', `${name}의 ${what}은 몇 개일까요?`, n, {
-          figure: figures.regular(n),
-          hint: '숫자만 입력하세요.',
-        });
-      }
-      const w = rand(3, 9), h = rand(2, w);
-      return intQuiz('geometry', '네 변의 길이를 모두 더하면 몇 cm일까요?', 2 * (w + h), {
-        figure: figures.rect(w, h),
-        hint: '숫자만 입력하세요. (단위: cm)',
-      });
-    },
-    // 표와 ○ 그래프 읽기
-    stats() {
-      const names = sample(['사과', '바나나', '포도', '딸기', '귤'], 4);
-      let counts;
-      do { counts = names.map(() => rand(1, 8)); } while (new Set(counts).size < 4);
-      const rows = names.map((n, i) => [n, counts[i]]);
-      const asCircles = Math.random() < 0.5;
-      const figure = dataTable(['과일', '학생 수'], rows, asCircles);
-      const hint = '숫자만 입력하세요. (단위: 명)';
-      const r = Math.random();
-      if (r < 0.35) {
-        return intQuiz('stats', '좋아하는 과일을 조사했어요.<br><small>조사한 학생은 모두 몇 명일까요?</small>', counts.reduce((a, b) => a + b, 0), { figure, hint });
-      }
-      if (r < 0.65) {
-        return intQuiz('stats', '가장 많은 학생이 좋아하는 과일은<br><small>몇 명이 좋아할까요?</small>', Math.max(...counts), { figure, hint });
-      }
-      const [i, j] = sample([0, 1, 2, 3], 2).sort((a, b) => counts[b] - counts[a]);
-      return intQuiz('stats', `${eul(names[i])} 좋아하는 학생은 ${names[j]}보다<br><small>몇 명 더 많을까요?</small>`, counts[i] - counts[j], { figure, hint });
-    },
+  // 학년별 파일이 { labels, generators } 를 등록한다
+  const LEVELS = {};
+
+  MR.QuizKit = {
+    rand, pick, gcd, MINUS, fmt, term, eun, gwa, eul, sup, sub, lead, cplx, paren,
+    factorial, perm, comb, SQUARE_FREE, root, coefRoot, blank, nonZero, TRIPLES, degHint,
+    intQuiz, fractionQuiz, decimalQuiz, reduce, fracHtml, mixedHtml, improperHtml, figures, dataTable, sample,
   };
-
-  // ---------- 초등 5~6학년 ----------
-  function randomFraction(allowMixed) {
-    const d = rand(2, 10);
-    const n = rand(1, d - 1);
-    const w = allowMixed && Math.random() < 0.4 ? rand(1, 3) : 0;
-    return { n: w * d + n, d };
-  }
-
-  const g56 = {
-    addSub() {
-      const big = Math.random() < 0.4;
-      if (Math.random() < 0.5) {
-        const a = big ? rand(1000, 8999) : rand(100, 999);
-        const b = rand(100, 999);
-        return intQuiz('addSub', `${a} + ${b} = ?`, a + b);
-      }
-      const a = big ? rand(1000, 9999) : rand(300, 999);
-      const b = rand(100, Math.min(999, a - 1));
-      return intQuiz('addSub', `${a} − ${b} = ?`, a - b);
-    },
-    multiply() {
-      if (Math.random() < 0.5) {
-        const a = rand(12, 99), b = rand(12, 99);
-        return intQuiz('multiply', `${a} × ${b} = ?`, a * b);
-      }
-      const a = rand(102, 999), b = rand(3, 9);
-      return intQuiz('multiply', `${a} × ${b} = ?`, a * b);
-    },
-    division() {
-      let divisor, quotient;
-      if (Math.random() < 0.5) {
-        divisor = rand(3, 9);
-        quotient = rand(Math.ceil(100 / divisor), Math.floor(999 / divisor));
-      } else {
-        divisor = rand(11, 32);
-        quotient = rand(4, Math.floor(999 / divisor));
-      }
-      return intQuiz('division', `${divisor * quotient} ÷ ${divisor} = ?`, quotient);
-    },
-    fraction() {
-      let a, b;
-      do {
-        a = randomFraction(true);
-        b = randomFraction(Math.random() < 0.3);
-      } while (a.d === b.d || a.n * b.d === b.n * a.d);
-      const isAdd = Math.random() < 0.5;
-      if (!isAdd && a.n * b.d < b.n * a.d) [a, b] = [b, a];
-      const ans = { n: isAdd ? a.n * b.d + b.n * a.d : a.n * b.d - b.n * a.d, d: a.d * b.d };
-      return fractionQuiz(`${mixedHtml(a)} ${isAdd ? '+' : '−'} ${mixedHtml(b)} = ?`, ans, 'mixed');
-    },
-    geometry() {
-      const kinds = [
-        () => {
-          const w = rand(6, 25), h = rand(3, w - 1);
-          return Math.random() < 0.5
-            ? { text: '직사각형의 둘레는 몇 cm일까요?', ans: 2 * (w + h), fig: figures.rect(w, h), unit: 'cm' }
-            : { text: '직사각형의 넓이는 몇 cm²일까요?', ans: w * h, fig: figures.rect(w, h), unit: 'cm²' };
-        },
-        () => {
-          const s = rand(4, 20);
-          return Math.random() < 0.5
-            ? { text: '정사각형의 둘레는 몇 cm일까요?', ans: 4 * s, fig: figures.square(s), unit: 'cm' }
-            : { text: '정사각형의 넓이는 몇 cm²일까요?', ans: s * s, fig: figures.square(s), unit: 'cm²' };
-        },
-        () => {
-          const n = pick([5, 6, 8]);
-          const s = rand(4, 15);
-          const name = { 5: '정오각형', 6: '정육각형', 8: '정팔각형' }[n];
-          return { text: `${name}의 둘레는 몇 cm일까요?`, ans: n * s, fig: figures.regular(n, s), unit: 'cm' };
-        },
-        () => {
-          const b = rand(5, 20), h = rand(3, 15);
-          return { text: '평행사변형의 넓이는 몇 cm²일까요?', ans: b * h, fig: figures.parallelogram(b, h), unit: 'cm²' };
-        },
-        () => {
-          let b, h;
-          do { b = rand(4, 20); h = rand(3, 16); } while ((b * h) % 2);
-          return { text: '삼각형의 넓이는 몇 cm²일까요?', ans: (b * h) / 2, fig: figures.triangle(b, h), unit: 'cm²' };
-        },
-        () => {
-          let t, bt, h;
-          do { t = rand(3, 12); bt = rand(t + 2, 20); h = rand(3, 12); } while (((t + bt) * h) % 2);
-          return { text: '사다리꼴의 넓이는 몇 cm²일까요?', ans: ((t + bt) * h) / 2, fig: figures.trapezoid(t, bt, h), unit: 'cm²' };
-        },
-        () => {
-          let d1, d2;
-          do { d1 = rand(6, 20); d2 = rand(4, 16); } while ((d1 * d2) % 2);
-          return { text: '마름모의 넓이는 몇 cm²일까요?', ans: (d1 * d2) / 2, fig: figures.rhombus(d1, d2), unit: 'cm²' };
-        },
-      ];
-      const q = pick(kinds)();
-      return intQuiz('geometry', q.text, q.ans, { figure: q.fig, hint: `숫자만 입력하세요. (단위: ${q.unit})` });
-    },
-    // 평균, 평균으로 모르는 값 구하기, 비율
-    stats() {
-      const people = sample(['민지', '서준', '하윤', '도윤', '지아', '시우'], rand(4, 5));
-      const mean = rand(6, 18) * 5;
-      let values;
-      do {
-        values = people.map(() => mean + rand(-12, 12));
-        const diff = mean * people.length - values.reduce((a, b) => a + b, 0);
-        values[values.length - 1] += diff;
-      } while (values.some((v) => v < 10 || v > 100));
-      const r = Math.random();
-      if (r < 0.45) {
-        return intQuiz('stats', '수학 점수의 평균은 몇 점일까요?', mean, {
-          figure: dataTable(['이름', '점수'], people.map((p, i) => [p, values[i]])),
-          hint: '숫자만 입력하세요. (단위: 점)',
-        });
-      }
-      if (r < 0.8) {
-        const k = rand(0, people.length - 1);
-        return intQuiz('stats', `점수의 평균이 ${mean}점일 때<br><small>${people[k]}의 점수는 몇 점일까요?</small>`, values[k], {
-          figure: dataTable(['이름', '점수'], people.map((p, i) => [p, i === k ? '□' : values[i]])),
-          hint: '숫자만 입력하세요. (단위: 점)',
-        });
-      }
-      const total = pick([20, 25, 40, 50, 200, 300]);
-      const pct = pick([10, 20, 25, 30, 40, 50, 60, 75]);
-      const ans = (total * pct) / 100;
-      if (!Number.isInteger(ans)) return this.stats();
-      const thing = pick(['축구', '피구', '줄넘기', '수영']);
-      return intQuiz('stats', `학생 ${total}명 중 ${pct}%가 ${eul(thing)} 좋아해요.<br><small>${eul(thing)} 좋아하는 학생은 몇 명일까요?</small>`, ans, {
-        hint: '숫자만 입력하세요. (단위: 명)',
-      });
-    },
-  };
-
-  // ---------- 중학교 3학년 ----------
-  const SQUARE_FREE = [2, 3, 5, 6, 7];
-  const root = (n) => `√${n}`;
-  const coefRoot = (c, n) => `${c === 1 ? '' : c}√${n}`;
-  const blank = '<small>□에 알맞은 수는?</small>';
-  const nonZero = (a, b) => {
-    let v;
-    do { v = rand(a, b); } while (v === 0);
-    return v;
-  };
-  const TRIPLES = [[3, 4, 5], [5, 12, 13], [8, 15, 17], [7, 24, 25]];
-
-  const m3 = {
-    // 제곱근의 덧셈/뺄셈
-    addSub() {
-      const r = Math.random();
-      if (r < 0.4) {
-        const n = pick(SQUARE_FREE), a = rand(2, 9);
-        let b;
-        do { b = rand(1, 9); } while (b === a);
-        const add = Math.random() < 0.5;
-        return intQuiz('addSub', `${coefRoot(a, n)} ${add ? '+' : '−'} ${coefRoot(b, n)} = □${root(n)}<br>${blank}`,
-          add ? a + b : a - b, { allowNegative: true });
-      }
-      if (r < 0.75) {
-        // 근호 안을 간단히 한 뒤 계산: √12 + √27 = □√3
-        const n = pick([2, 3, 5]), p = rand(1, 4), q = rand(2, 5);
-        const add = Math.random() < 0.5;
-        return intQuiz('addSub', `${root(n * p * p)} ${add ? '+' : '−'} ${root(n * q * q)} = □${root(n)}<br>${blank}`,
-          add ? p + q : p - q, { allowNegative: true });
-      }
-      const p = rand(2, 15), q = rand(2, 15);
-      const add = Math.random() < 0.5;
-      return intQuiz('addSub', `${root(p * p)} ${add ? '+' : '−'} ${root(q * q)} = ?`, add ? p + q : p - q, { allowNegative: true });
-    },
-    // 곱셈 공식, 제곱근의 곱셈
-    multiply() {
-      const r = Math.random();
-      if (r < 0.4) {
-        const a = nonZero(-9, 9), b = nonZero(-9, 9);
-        return intQuiz('multiply', `(x${term(a)})(x${term(b)}) = x² + □x${term(a * b)}<br>${blank}`, a + b, { allowNegative: true });
-      }
-      if (r < 0.65) {
-        const a = nonZero(-9, 9);
-        return intQuiz('multiply', `(x${term(a)})² = x² + □x + ${a * a}<br>${blank}`, 2 * a, { allowNegative: true });
-      }
-      const n = pick(SQUARE_FREE), p = rand(1, 4), q = rand(1, 4);
-      return intQuiz('multiply', `${root(n * p * p)} × ${root(n * q * q)} = ?`, n * p * q);
-    },
-    // 인수분해, 이차방정식, 제곱근의 나눗셈
-    division() {
-      const r = Math.random();
-      if (r < 0.35) {
-        const a = nonZero(-9, 9);
-        let b;
-        do { b = nonZero(-9, 9); } while (b === a || b === -a);
-        return intQuiz('division', `x²${term(a + b, 'x')}${term(a * b)} = (x${term(a)})(x + □)<br>${blank}`, b, { allowNegative: true });
-      }
-      if (r < 0.7) {
-        const p = nonZero(-9, 9);
-        let q;
-        do { q = nonZero(-9, 9); } while (q === p);
-        // (x − p)(x − q) = 0
-        const big = Math.random() < 0.5;
-        return intQuiz('division', `x²${term(-(p + q), 'x')}${term(p * q)} = 0<br><small>두 근 중 ${big ? '큰' : '작은'} 근은?</small>`,
-          big ? Math.max(p, q) : Math.min(p, q), { allowNegative: true });
-      }
-      const n = pick(SQUARE_FREE), p = rand(2, 9);
-      return intQuiz('division', `${root(n * p * p)} ÷ ${root(n)} = ?`, p);
-    },
-    // 삼각비, 유리수의 계산
-    fraction() {
-      if (Math.random() < 0.55) {
-        const [s1, s2, h] = pick(TRIPLES);
-        const k = rand(1, 3);
-        // a = BC(∠A 의 대변), b = AC(이웃변)
-        const [a, b] = Math.random() < 0.5 ? [s1 * k, s2 * k] : [s2 * k, s1 * k];
-        const c = h * k;
-        const fn = pick(['sin', 'cos', 'tan']);
-        const ans = { sin: { n: a, d: c }, cos: { n: b, d: c }, tan: { n: a, d: b } }[fn];
-        return fractionQuiz(`${fn} A = ?`, ans, 'improper', {
-          figure: figures.rightTriangle(a, b, c, true),
-        });
-      }
-      const x = { n: nonZero(-9, 9), d: rand(2, 9) };
-      const y = { n: nonZero(-9, 9), d: rand(2, 9) };
-      const op = pick(['+', '−', '×', '÷']);
-      let ans;
-      if (op === '+') ans = { n: x.n * y.d + y.n * x.d, d: x.d * y.d };
-      else if (op === '−') ans = { n: x.n * y.d - y.n * x.d, d: x.d * y.d };
-      else if (op === '×') ans = { n: x.n * y.n, d: x.d * y.d };
-      else ans = { n: x.n * y.d * Math.sign(y.n), d: x.d * Math.abs(y.n) };
-      const show = (f) => {
-        const r = reduce(f);
-        const html = improperHtml(r);
-        return r.n < 0 ? `(${html})` : html;
-      };
-      return fractionQuiz(`${show(x)} ${op} ${show(y)} = ?`, ans, 'improper');
-    },
-    // 원주각, 피타고라스 정리
-    geometry() {
-      const r = Math.random();
-      if (r < 0.45) {
-        const central = rand(4, 16) * 10;
-        const askInscribed = Math.random() < 0.5;
-        return askInscribed
-          ? intQuiz('geometry', '∠APB 의 크기는 몇 도일까요?', central / 2, {
-            figure: figures.circleAngle(central, `${central}°`, 'x'),
-            hint: '숫자만 입력하세요. (단위: °)',
-          })
-          : intQuiz('geometry', '∠AOB 의 크기는 몇 도일까요?', central, {
-            figure: figures.circleAngle(central, 'x', `${central / 2}°`),
-            hint: '숫자만 입력하세요. (단위: °)',
-          });
-      }
-      const [s1, s2, h] = pick(TRIPLES);
-      const k = rand(1, 3);
-      const [a, b, c] = Math.random() < 0.5 ? [s1 * k, s2 * k, h * k] : [s2 * k, s1 * k, h * k];
-      const hint = '숫자만 입력하세요. (단위: cm)';
-      if (Math.random() < 0.5) {
-        return intQuiz('geometry', '빗변 AB 의 길이 x 는 몇 cm일까요?', c, { figure: figures.rightTriangle(`${a} cm`, `${b} cm`, 'x', false), hint });
-      }
-      return intQuiz('geometry', '변 BC 의 길이 x 는 몇 cm일까요?', a, { figure: figures.rightTriangle('x', `${b} cm`, `${c} cm`, false), hint });
-    },
-    // 대푯값(중앙값, 최빈값)과 산포도(분산, 표준편차)
-    stats() {
-      const show = (arr) => `<div class="quiz-data">자료: ${arr.join(', ')}</div>`;
-      const r = Math.random();
-      if (r < 0.3) {
-        // 짝수 개 자료의 중앙값 (가운데 두 값의 평균이 정수가 되도록)
-        const n = pick([6, 8]);
-        let vals;
-        do {
-          vals = Array.from({ length: n }, () => rand(1, 40));
-          vals.sort((a, b) => a - b);
-        } while ((vals[n / 2 - 1] + vals[n / 2]) % 2);
-        const median = (vals[n / 2 - 1] + vals[n / 2]) / 2;
-        return intQuiz('stats', '다음 자료의 중앙값은?', median, { figure: show(sample(vals, n)), hint: '숫자만 입력하세요.' });
-      }
-      if (r < 0.45) {
-        const mode = rand(2, 30);
-        const others = sample(Array.from({ length: 30 }, (_, i) => i + 1).filter((v) => v !== mode), 5);
-        const vals = sample([mode, mode, mode, ...others.slice(0, 2), others[2], others[2], ...others.slice(3)], 10);
-        return intQuiz('stats', '다음 자료의 최빈값은?', mode, { figure: show(vals), hint: '숫자만 입력하세요.' });
-      }
-      // 평균과 분산이 정수가 되는 자료 (편차의 합 0)
-      const askSd = r >= 0.75;
-      for (let tries = 0; tries < 500; tries++) {
-        const n = pick([4, 5]);
-        const dev = Array.from({ length: n - 1 }, () => rand(-6, 6));
-        dev.push(-dev.reduce((a, b) => a + b, 0));
-        if (Math.abs(dev[n - 1]) > 8) continue;
-        const ss = dev.reduce((a, d) => a + d * d, 0);
-        if (ss === 0 || ss % n) continue;
-        const variance = ss / n;
-        const sd = Math.sqrt(variance);
-        if (askSd && !Number.isInteger(sd)) continue;
-        const mean = rand(5, 20);
-        const vals = dev.map((d) => mean + d);
-        return askSd
-          ? intQuiz('stats', '다음 자료의 표준편차는?', sd, { figure: show(vals), hint: '숫자만 입력하세요. (평균을 먼저 구해 보세요)' })
-          : intQuiz('stats', '다음 자료의 분산은?', variance, { figure: show(vals), hint: '숫자만 입력하세요. (평균을 먼저 구해 보세요)' });
-      }
-      return this.stats();
-    },
-  };
-
-  const GENERATORS = { g12, g56, m3 };
 
   MR.Quiz = {
     DIFFICULTIES,
     DEFAULT,
-    kinds: Object.keys(g56),
+    kinds: KINDS,
+    register(id, level) {
+      LEVELS[id] = level;
+    },
     label(kind, difficulty) {
-      return (LABELS[difficulty] || LABELS[DEFAULT])[kind];
+      return (LEVELS[difficulty] || LEVELS[DEFAULT]).labels[kind];
     },
     difficultyName(difficulty) {
       const d = DIFFICULTIES.find((x) => x.id === difficulty);
       return d ? d.name : '';
     },
     make(kind, difficulty = DEFAULT) {
-      const table = GENERATORS[difficulty] || GENERATORS[DEFAULT];
+      const table = (LEVELS[difficulty] || LEVELS[DEFAULT]).generators;
       const gen = table[kind];
       if (!gen) throw new Error(`알 수 없는 퀴즈 종류: ${kind}`);
       return gen.call(table);

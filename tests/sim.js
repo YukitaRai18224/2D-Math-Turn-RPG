@@ -10,7 +10,8 @@ const assert = require('assert');
 
 const ctx = vm.createContext({ console, Math });
 ctx.globalThis = ctx;
-for (const f of ['config.js', 'data/characters.js', 'data/equipment.js', 'data/monsters.js', 'data/stages.js', 'quiz.js', 'battle.js']) {
+for (const f of ['config.js', 'data/characters.js', 'data/equipment.js', 'data/monsters.js', 'data/stages.js', 'quiz.js',
+  'quiz/elementary.js', 'quiz/middle.js', 'quiz/high.js', 'battle.js']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, { filename: f });
 }
 const MR = ctx.MR;
@@ -28,6 +29,9 @@ for (const { id } of MR.Quiz.DIFFICULTIES) {
     }
   }
 }
+for (const { id } of MR.Quiz.DIFFICULTIES) {
+  for (const kind of MR.Quiz.kinds) assert(MR.Quiz.label(kind, id), `라벨 없음 (${id}/${kind})`);
+}
 const f = MR.Quiz._parseFraction;
 assert.deepStrictEqual([f('1 1/2').n, f('1 1/2').d], [3, 2]);
 assert.strictEqual(f('1/0'), null);
@@ -38,7 +42,7 @@ if (process.argv.includes('--samples')) {
     for (const kind of MR.Quiz.kinds) {
       for (let i = 0; i < 3; i++) {
         const q = MR.Quiz.make(kind, id);
-        const text = q.html.replace(/<span class="frac"><span>(\d+)<\/span><span>(\d+)<\/span><\/span>/g, '($1/$2)').replace(/<br>/g, ' ').replace(/<[^>]+>/g, '');
+        const text = q.html.replace(/<span class="frac"><span>([^<]+)<\/span><span>([^<]+)<\/span><\/span>/g, '($1/$2)').replace(/<sup>/g, '^').replace(/<br>/g, ' ').replace(/<[^>]+>/g, '');
         console.log(`  ${kind.padEnd(9)} ${text}  →  ${q.answerText}`);
       }
     }

@@ -135,10 +135,16 @@
         </section>
         <section class="difficulty">
           <h2>문제 난이도</h2>
-          <div class="segmented" role="radiogroup" aria-label="문제 난이도">
-            ${MR.Quiz.DIFFICULTIES.map((d) => `
-              <button role="radio" aria-checked="${d.id === s.difficulty}" class="${d.id === s.difficulty ? 'on' : ''}"
-                      data-act="difficulty" data-id="${d.id}">${d.name}</button>`).join('')}
+          <div class="diff-groups" role="radiogroup" aria-label="문제 난이도">
+            ${[...new Set(MR.Quiz.DIFFICULTIES.map((d) => d.group))].map((g) => `
+              <div class="diff-group">
+                <span class="diff-group-name">${g}</span>
+                <div class="segmented">
+                  ${MR.Quiz.DIFFICULTIES.filter((d) => d.group === g).map((d) => `
+                    <button role="radio" aria-checked="${d.id === s.difficulty}" aria-label="${d.name}" class="${d.id === s.difficulty ? 'on' : ''}"
+                            data-act="difficulty" data-id="${d.id}">${d.short}</button>`).join('')}
+                </div>
+              </div>`).join('')}
           </div>
           <p class="difficulty-note">${MR.PARTY_ORDER.map((k) => `<span style="--c:${MR.CHARACTERS[k].color}"><b>${MR.CHARACTERS[k].name}</b> ${MR.Quiz.label(MR.CHARACTERS[k].quiz, s.difficulty)}</span>`).join('')}<span><b>일반 공격</b> ${MR.Quiz.label('addSub', s.difficulty)}</span></p>
         </section>
