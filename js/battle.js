@@ -7,6 +7,7 @@
 //
 // options.difficulty: 퀴즈 난이도 (MR.Quiz.DIFFICULTIES 의 id)
 // options.equip: { 캐릭터 key: { weapon: 강화 단계, ... } } (없으면 장비 없음)
+// options.party: 출전하는 캐릭터 key 배열 (없으면 MR.PARTY_ORDER)
 //   delay(ms)           → Promise
 //   update()            화면 갱신
 //   log(text)           전투 기록
@@ -23,7 +24,7 @@
     const e = MR.equipBonus(equipLevels);
     const hp = s.hp + e.hp;
     return {
-      uid: `a_${key}`, key, side: 'ally', def, name: def.name, level,
+      uid: `a_${key}`, key, side: 'ally', def, name: def.name, level, skillLevel: MR.skillLevelFor(level), shield: 0,
       maxHp: hp, hp, baseAtk: s.atk + e.atk, baseDef: s.def + e.def, spd: s.spd + e.spd,
       maxEnergy: def.maxEnergy, energy: Math.round(def.maxEnergy * MR.CONFIG.ENERGY.start),
       buffs: [], alive: true,
@@ -51,7 +52,8 @@
       this.io = io;
       this.difficulty = options.difficulty || MR.Quiz.DEFAULT;
       const equip = options.equip || {};
-      this.allies = MR.PARTY_ORDER.map((k) => makeAlly(k, levels[k] || 1, equip[k]));
+      const party = options.party || MR.PARTY_ORDER;
+      this.allies = party.map((k) => makeAlly(k, levels[k] || 1, equip[k]));
       this.enemies = stage.enemies.map((k, i) => {
         // 같은 종류가 여러 마리면 그 종류 안에서의 순서로 A, B, C… 를 붙인다
         const same = stage.enemies.filter((x) => x === k).length;
@@ -147,18 +149,70 @@
       if (!target || !target.alive) return 0;
       const trait = src.def.trait;
       const bonus = trait && trait.damageBonus ? trait.damageBonus(this, src, target, ctx) : 0;
-      const raw = this.stat(src, 'atk') * mult * (1 + bonus);
+      const dmg = this.applyHit(target, this.stat(src, 'atk') * mult * (1 + bonus));
+      if (target.side === 'ally') this.gainEnergy(target, MR.CONFIG.ENERGY.hit);
+      if (target.alive) this.checkImagMark(src, target, dmg);
+      return dmg;
+    }
+
+    // 방어력을 적용해 피해를 주고(실드가 먼저 막는다) 준 피해량을 돌려준다
+    applyHit(target, raw, fxType = 'damage') {
       const k = MR.CONFIG.DEF_K;
       const dmg = Math.max(1, Math.round((raw * k) / (k + this.stat(target, 'def'))));
-      target.hp = Math.max(0, target.hp - dmg);
-      this.io.fx({ type: 'damage', uid: target.uid, amount: dmg });
-      if (target.side === 'ally') this.gainEnergy(target, MR.CONFIG.ENERGY.hit);
-      if (target.hp === 0) {
-        target.alive = false;
-        target.buffs = [];
-        this.log(`${target.name}이(가) 쓰러졌다.`);
-      }
+      const absorbed = Math.min(target.shield || 0, dmg);
+      if (absorbed) target.shield -= absorbed;
+      target.hp = Math.max(0, target.hp - (dmg - absorbed));
+      this.io.fx({ type: fxType, uid: target.uid, amount: dmg });
+      if (target.hp === 0) this.kill(target);
       return dmg;
+    }
+
+    kill(target) {
+      target.alive = false;
+      target.buffs = [];
+      target.shield = 0;
+      this.log(`${target.name}이(가) 쓰러졌다.`);
+    }
+
+    // 자기 자신에게 주는 피해 (방어력·실드 무시, 쓰러지지는 않는다)
+    selfDamage(u, amount) {
+      const dmg = Math.min(amount, u.hp - 1);
+      if (dmg <= 0) return 0;
+      u.hp -= dmg;
+      this.io.fx({ type: 'damage', uid: u.uid, amount: dmg });
+      return dmg;
+    }
+
+    addShield(u, amount) {
+      if (!u.alive || amount <= 0) return;
+      u.shield = (u.shield || 0) + amount;
+      this.log(`${u.name}에게 실드 ${amount}`);
+    }
+
+    // ---------- 허수 표식 (라파) ----------
+    applyImagMark(src, target) {
+      if (!target.alive) return;
+      const spec = src.def.mark;
+      const cur = target.buffs.find((b) => b.kind === 'imagMark');
+      const stacks = Math.min(spec.maxStacks, (cur ? cur.stacks : 0) + 1);
+      target.buffs = target.buffs.filter((b) => b.kind !== 'imagMark');
+      // 다시 부여되면 누구의 공격으로든 다시 터질 수 있다
+      target.buffs.push({ id: 'imagMark', kind: 'imagMark', label: '허수 표식', stacks, turns: spec.turns, sourceUid: src.uid, usedBy: [], fresh: this.current === target });
+    }
+
+    checkImagMark(attacker, target, dmg) {
+      const mark = target.buffs.find((b) => b.kind === 'imagMark');
+      if (!mark || mark.usedBy.includes(attacker.uid)) return;
+      if (dmg <= target.maxHp * MR.CHARACTERS.rafa.mark.threshold) return;
+      const owner = this.find(mark.sourceUid);
+      if (!owner) return;
+      const spec = owner.def.mark;
+      const i = owner.skillLevel - 1;
+      mark.usedBy.push(attacker.uid);
+      mark.stacks -= 1;
+      if (mark.stacks <= 0) target.buffs = target.buffs.filter((b) => b !== mark);
+      this.log(`허수 표식이 터졌다! (${target.name})`);
+      this.applyHit(target, this.stat(owner, 'atk') * spec.atk[i] + owner.maxHp * spec.hp[i], 'burst');
     }
 
     hitAll(src, mult) {
@@ -304,6 +358,11 @@
     }
 
     async allyTurn(u) {
+      const trait = u.def.trait;
+      if (trait && trait.onTurnStart) {
+        trait.onTurnStart(this, u);
+        this.io.update();
+      }
       for (;;) {
         const choice = await this.io.chooseAction(u);
         if (this.over || choice.type === 'abort') return;

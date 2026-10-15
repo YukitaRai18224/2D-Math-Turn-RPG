@@ -131,6 +131,20 @@ button { font: inherit; color: inherit; }
 
 .stats td.equip { color: #3a6fd8; font-weight: 800; }
 .equip-note { font-size: 12px; color: var(--muted); margin: 4px 0 8px; }
+.char-title { display: block; font-size: 11px !important; color: var(--muted) !important; width: 100%; }
+.char-body h3 { flex-wrap: wrap; }
+.skill-lv { font-size: 13px; font-weight: 800; color: var(--c); margin: 8px 0 0; }
+.skill-lv small { color: var(--muted); font-weight: 500; }
+.skill-note, .party-count { font-size: 13px; color: var(--muted); margin: 0 0 10px; }
+.party-count b { color: var(--ink); }
+.char-portrait { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+.party-toggle { font-size: 13px; padding: 6px 8px; }
+.party-toggle.on { background: var(--c); border-color: var(--c); color: #fff; }
+.char-card.benched { opacity: 0.75; }
+.char-card.benched .char-portrait img { filter: grayscale(0.5); }
+.party-warn { font-size: 13px; font-weight: 700; color: #b06a00; background: #fff4dd; border-radius: 999px; padding: 6px 12px; }
+.unlock.join { display: flex; align-items: center; gap: 8px; text-align: left; }
+.unlock.join img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; object-position: 50% 12%; flex: none; }
 
 /* ---------- 장비 ---------- */
 .equip-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -225,6 +239,9 @@ button { font: inherit; color: inherit; }
 .chip.up { background: #e3f4e4; color: #2e7d32; }
 .chip.down { background: #fde6e6; color: #c62828; }
 .chip.silence { background: #3b3f4a; color: #fff; }
+.chip.imag { background: #fbf1d9; color: #8a6413; font-family: ui-serif, Georgia, serif; }
+.chip.shield { background: #e3eefc; color: #2a5db0; }
+.fx-num.burst { color: #b8892b; font-size: 28px; text-shadow: 0 0 8px #ffe9a8, 0 2px 0 #fff; }
 .chip.mark { background: #dff6fa; color: #13707f; font-family: ui-serif, Georgia, serif; }
 .ally-card.silenced .portrait img { filter: grayscale(0.6) brightness(0.9); }
 .ally-card.silenced { outline: 2px dashed #3b3f4a; outline-offset: -2px; }

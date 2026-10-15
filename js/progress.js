@@ -1,16 +1,16 @@
-// 진행 상황 저장 (브라우저 localStorage): 클리어한 스테이지, 경험치 물약, 캐릭터 레벨, 장비 강화, 강화석
+// 진행 상황 저장 (브라우저 localStorage): 클리어한 스테이지, 경험치 물약, 캐릭터 레벨, 장비 강화, 강화석, 출전 파티
 (function (MR) {
   const KEY = 'mathrpg.save.v1';
 
   function defaults() {
     const levels = {};
     const equip = {};
-    for (const k of MR.PARTY_ORDER) {
+    for (const k of MR.CHARACTER_ORDER) {
       levels[k] = 1;
       equip[k] = {};
       for (const slot of MR.EQUIP_SLOTS) equip[k][slot.id] = 0;
     }
-    return { cleared: {}, potions: 0, stones: 0, levels, equip, difficulty: MR.Quiz.DEFAULT, stoneBackfill: true };
+    return { cleared: {}, potions: 0, stones: 0, levels, equip, party: [...MR.PARTY_ORDER], difficulty: MR.Quiz.DEFAULT, stoneBackfill: true };
   }
 
   MR.Progress = {
@@ -34,7 +34,11 @@
         equip: d.equip,
       };
       const savedEquip = (saved && saved.equip) || {};
-      for (const k of MR.PARTY_ORDER) this.state.equip[k] = { ...d.equip[k], ...(savedEquip[k] || {}) };
+      for (const k of MR.CHARACTER_ORDER) this.state.equip[k] = { ...d.equip[k], ...(savedEquip[k] || {}) };
+      // 출전 파티: 저장된 값 중 열린 캐릭터만, 중복 없이
+      const savedParty = (saved && Array.isArray(saved.party) && saved.party) || d.party;
+      this.state.party = [...new Set(savedParty)].filter((k) => MR.CHARACTERS[k] && this.isCharUnlocked(k)).slice(0, MR.PARTY_SIZE);
+      if (!this.state.party.length) this.state.party = [...d.party];
 
       // 장비 업데이트 전에 1-8 이후 스테이지를 클리어한 저장 데이터는 그때 받지 못한 강화석을 한 번 지급한다
       this.state.stoneBackfill = !!(saved && saved.stoneBackfill);
@@ -82,6 +86,34 @@
 
     isLevelUpUnlocked() {
       return this.isCleared(MR.CONFIG.LEVEL_UNLOCK_STAGE);
+    },
+
+    isCharUnlocked(key) {
+      const def = MR.CHARACTERS[key];
+      return !!def && (!def.unlockStage || this.isCleared(def.unlockStage));
+    },
+
+    // 동료가 된 캐릭터 목록 (CHARACTER_ORDER 순서)
+    roster() {
+      return MR.CHARACTER_ORDER.filter((k) => this.isCharUnlocked(k));
+    },
+
+    inParty(key) {
+      return this.state.party.includes(key);
+    },
+
+    isPartyReady() {
+      return this.state.party.length === MR.PARTY_SIZE;
+    },
+
+    // 출전 파티에 넣거나 뺀다 (최대 PARTY_SIZE 명)
+    toggleParty(key) {
+      if (!this.isCharUnlocked(key)) return false;
+      if (this.inParty(key)) this.state.party = this.state.party.filter((k) => k !== key);
+      else if (this.state.party.length < MR.PARTY_SIZE) this.state.party = [...this.state.party, key];
+      else return false;
+      this.save();
+      return true;
     },
 
     isEquipUnlocked() {
@@ -157,6 +189,7 @@
         reward,
         stones,
         firstClear,
+        newMembers: firstClear ? MR.CHARACTER_ORDER.filter((k) => MR.CHARACTERS[k].unlockStage === stage.id) : [],
         levelUpJustUnlocked: !wasUnlocked && this.isLevelUpUnlocked(),
         equipJustUnlocked: !equipWasUnlocked && this.isEquipUnlocked(),
       };

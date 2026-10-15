@@ -48,6 +48,20 @@
     DELAY: { enemyAction: 650, afterAction: 350, quizCorrect: 1000, quizWrong: 1900, skillBanner: 1100 },
   };
 
+  // 캐릭터 레벨에 따른 스킬 레벨: Lv1 → 1, Lv7 → 2, Lv13 → 3, Lv19 → 4
+  MR.CONFIG.SKILL_LEVEL_AT = [1, 7, 13, 19];
+  MR.skillLevelFor = function (charLevel) {
+    return MR.CONFIG.SKILL_LEVEL_AT.filter((lv) => charLevel >= lv).length;
+  };
+  // 다음 스킬 레벨이 열리는 캐릭터 레벨 (최대면 null)
+  MR.nextSkillLevelAt = function (charLevel) {
+    return MR.CONFIG.SKILL_LEVEL_AT.find((lv) => lv > charLevel) || null;
+  };
+  // 설명은 문자열이거나 스킬 레벨을 받는 함수
+  MR.describe = function (text, skillLevel) {
+    return typeof text === 'function' ? text(skillLevel || 1) : text;
+  };
+
   MR.statsAtLevel = function (base, level) {
     const g = MR.CONFIG.GROWTH;
     const n = level - 1;

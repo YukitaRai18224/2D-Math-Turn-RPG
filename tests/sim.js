@@ -3,6 +3,7 @@
 //   node tests/sim.js 0.7        → 퀴즈 정답률 70% 가정
 //   node tests/sim.js --samples  → 난이도별 예시 문제 출력
 //   node tests/sim.js --chapter=2 → 챕터 2만 (Lv13~20 기준)
+//   node tests/sim.js --party=kagari,rafa,pricia,hina → 출전 파티 지정
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -16,6 +17,8 @@ for (const f of ['config.js', 'data/characters.js', 'data/equipment.js', 'data/m
 }
 const MR = ctx.MR;
 const accuracy = Number(process.argv.find((a) => /^[\d.]+$/.test(a)) || 0.8);
+const partyArg = process.argv.find((a) => a.startsWith('--party='));
+const party = partyArg ? partyArg.split('=')[1].split(',') : MR.PARTY_ORDER;
 
 // ---------- 퀴즈 검사 ----------
 for (const { id } of MR.Quiz.DIFFICULTIES) {
@@ -78,10 +81,10 @@ function autoIo(battle) {
 
 async function simulate(stage, level, runs = 150) {
   let wins = 0, rounds = 0;
-  const levels = Object.fromEntries(MR.PARTY_ORDER.map((k) => [k, level]));
+  const levels = Object.fromEntries(MR.CHARACTER_ORDER.map((k) => [k, level]));
   for (let i = 0; i < runs; i++) {
     const io = {};
-    const b = new MR.Battle(stage, levels, io);
+    const b = new MR.Battle(stage, levels, io, { party });
     Object.assign(io, autoIo(b));
     if ((await b.run()) === 'win') wins++;
     rounds += b.round;
@@ -93,7 +96,7 @@ async function simulate(stage, level, runs = 150) {
   const chapter = process.argv.find((a) => a.startsWith('--chapter='));
   const ch = chapter ? chapter.split('=')[1] : null;
   const levelsToTest = ch === '2' ? [13, 16, 18, 20] : [1, 4, 7, 10];
-  console.log(`\n정답률 ${accuracy * 100}% 가정 · 승률 (평균 라운드)`);
+  console.log(`\n정답률 ${accuracy * 100}% 가정 · 파티: ${party.join(', ')} · 승률 (평균 라운드)`);
   console.log('스테이지 ' + levelsToTest.map((l) => `Lv${l}`.padStart(14)).join(''));
   for (const s of MR.STAGES.filter((x) => !ch || x.id.startsWith(`${ch}-`))) {
     const cells = [];

@@ -47,7 +47,11 @@
         const sk = this.skills;
         const step = (m.turn - 1) % 4;
 
-        if (step === 0) {
+        // 침묵 중에는 스킬을 쓰지 못하고 기본 공격만 한다
+        if (b.isSilenced(self)) {
+          b.log(`${self.name}은(는) 침묵 중이라 ${sk.bolt.name}만 쓸 수 있다!`);
+          for (const t of b.randomAllies(2)) b.dealDamage(self, t, 1.0);
+        } else if (step === 0) {
           await b.announce(self, sk.mark.name, 'mark');
           for (const a of b.aliveAllies()) b.addMark(a);
           b.log('모든 아군에게 허수 표식이 새겨졌다! 다음 퀴즈를 틀리면 침묵에 걸린다.');
@@ -94,7 +98,12 @@
         m.healCooldown = Math.max(0, (m.healCooldown || 0) - 1);
         const sk = this.skills;
 
-        if (self.hp / self.maxHp <= 0.5 && m.healCooldown === 0) {
+        if (b.isSilenced(self)) {
+          // 침묵 중에는 스킬을 쓰지 못하고 기본 공격만 한다
+          const [t] = b.randomAllies(1);
+          b.log(`${self.name}은(는) 침묵 중이라 ${sk.bolt.name}만 쓸 수 있다!`);
+          if (t) b.dealDamage(self, t, 1.3);
+        } else if (self.hp / self.maxHp <= 0.5 && m.healCooldown === 0) {
           m.healCooldown = 4;
           await b.announce(self, sk.decrypt.name, 'decrypt');
           b.healMaxHp(self, 0.15);

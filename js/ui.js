@@ -76,11 +76,18 @@
       </svg>`;
   }
 
+  // 이름 뒤 조사: 받침이 있으면 '이', 없으면 '가'
+  function iga(name) {
+    const code = name.charCodeAt(name.length - 1) - 0xac00;
+    return `${name}${code >= 0 && code < 11172 && code % 28 ? '이' : '가'}`;
+  }
+
   function buffChips(u) {
     return u.buffs
       .map((b) => {
         if (b.kind === 'silence') return `<span class="chip silence">🔇 침묵 · ${b.turns}턴</span>`;
         if (b.kind === 'mark') return `<span class="chip mark" title="다음 퀴즈를 틀리면 1턴 침묵">ⅰ 허수 표식</span>`;
+        if (b.kind === 'imagMark') return `<span class="chip imag" title="최대 체력 10%를 넘는 피해를 받으면 터짐">ⅰ 표식 ×${b.stacks} · ${b.turns}턴</span>`;
         const up = b.pct > 0;
         return `<span class="chip ${up ? 'up' : 'down'}">${b.label} ${up ? '+' : ''}${Math.round(b.pct * 100)}% · ${b.turns}턴</span>`;
       })
@@ -124,7 +131,8 @@
         </header>
         ${P().backfillNotice ? `<p class="notice gift">🎁 장비 업데이트 전에 클리어한 스테이지의 강화석 <b>💎 ${P().backfillNotice}개</b>를 지급했어요.</p>` : ''}
         <section class="party-strip">
-          ${MR.PARTY_ORDER.map((k) => {
+          ${P().isPartyReady() ? '' : `<span class="party-warn">⚠ 출전 멤버 ${P().state.party.length}/${MR.PARTY_SIZE}명 · 파티 화면에서 골라 주세요</span>`}
+          ${P().state.party.map((k) => {
             const c = MR.CHARACTERS[k];
             return `<div class="party-face" style="--c:${c.color}"><img src="${c.image}" alt=""><span>${c.name}<small>Lv.${P().level(k)}</small></span></div>`;
           }).join('')}
@@ -146,7 +154,7 @@
                 </div>
               </div>`).join('')}
           </div>
-          <p class="difficulty-note">${MR.PARTY_ORDER.map((k) => `<span style="--c:${MR.CHARACTERS[k].color}"><b>${MR.CHARACTERS[k].name}</b> ${MR.Quiz.label(MR.CHARACTERS[k].quiz, s.difficulty)}</span>`).join('')}<span><b>일반 공격</b> ${MR.Quiz.label('addSub', s.difficulty)}</span></p>
+          <p class="difficulty-note">${P().roster().map((k) => `<span style="--c:${MR.CHARACTERS[k].color}"><b>${MR.CHARACTERS[k].name}</b> ${MR.Quiz.label(MR.CHARACTERS[k].quiz, s.difficulty)}</span>`).join('')}<span><b>일반 공격</b> ${MR.Quiz.label('addSub', s.difficulty)}</span></p>
         </section>
         <nav class="chapter-tabs" role="tablist">
           ${MR.CHAPTERS.map((ch) => {
@@ -171,11 +179,12 @@
   }
 
   // ---------- 파티 · 레벨업 ----------
-  function showParty() {
+  function showParty(notice) {
     const unlocked = P().isLevelUpUnlocked();
     const diff = P().state.difficulty;
     const equipOn = P().isEquipUnlocked();
-    const cards = MR.PARTY_ORDER.map((k) => {
+    const roster = P().roster();
+    const cards = roster.map((k) => {
       const c = MR.CHARACTERS[k];
       const lv = P().level(k);
       const eq = MR.equipBonus(P().state.equip[k]);
@@ -189,23 +198,31 @@
       if (!unlocked) btn = `<button class="btn" disabled>🔒 ${MR.CONFIG.LEVEL_UNLOCK_STAGE} 클리어 시 해금</button>`;
       else if (cost === null) btn = `<button class="btn" disabled>최대 레벨</button>`;
       else btn = `<button class="btn primary" data-act="levelup" data-key="${k}" ${P().canLevelUp(k) ? '' : 'disabled'}>레벨업 (🧪 ${cost})</button>`;
+      const sl = MR.skillLevelFor(lv);
+      const nextAt = MR.nextSkillLevelAt(lv);
+      const inParty = P().inParty(k);
+      const partyFull = P().state.party.length >= MR.PARTY_SIZE;
+      const partyBtn = roster.length > MR.PARTY_SIZE
+        ? `<button class="btn party-toggle ${inParty ? 'on' : ''}" data-act="party-toggle" data-key="${k}" ${!inParty && partyFull ? 'disabled title="출전 멤버는 4명까지예요. 먼저 한 명을 빼 주세요."' : ''}>${inParty ? '✓ 출전 중' : '출전하기'}</button>`
+        : '';
 
       return `
-        <article class="char-card" style="--c:${c.color}">
-          <div class="char-portrait"><img src="${c.image}" alt="${c.name}"></div>
+        <article class="char-card ${roster.length > MR.PARTY_SIZE && !inParty ? 'benched' : ''}" style="--c:${c.color}">
+          <div class="char-portrait"><img src="${c.image}" alt="${c.name}">${partyBtn}</div>
           <div class="char-body">
-            <h3>${c.name} <small>${c.role}</small> <span class="lv">Lv.${lv}</span></h3>
+            <h3>${c.title ? `<small class="char-title">${c.title}</small>` : ''}${c.name} <small>${c.role}</small> <span class="lv">Lv.${lv}</span></h3>
             <table class="stats">
               ${row('최대 체력', 'hp')}${row('공격력', 'atk')}${row('방어력', 'def')}
               <tr><th>속도</th><td>${now.spd}</td><td></td>${eqCell('spd')}</tr>
             </table>
             ${equipOn ? '<p class="equip-note">파란 숫자는 장비로 오른 능력치예요.</p>' : ''}
             ${btn}
+            <p class="skill-lv">스킬 Lv.${sl}${nextAt ? ` <small>· 캐릭터 Lv.${nextAt}에 스킬 Lv.${sl + 1}</small>` : ' <small>· 최대</small>'}</p>
             <dl class="kit">
               <dt>일반 공격</dt><dd>선택한 적에게 공격력 100% 피해. <em>${MR.Quiz.label('addSub', diff)} 퀴즈</em> 정답 시 스킬 포인트 +1</dd>
-              <dt>고유 스킬 · ${c.skill.name}</dt><dd>${c.skill.desc}. <em>${MR.Quiz.label(c.quiz, diff)} 퀴즈</em> ${c.skill.bonusDesc}</dd>
-              <dt>궁극기 · ${c.ult.name}</dt><dd>${c.ult.desc}. 에너지 ${c.maxEnergy} 소모, 퀴즈 정답 시 소모량의 ${Math.round(c.ult.refund * 100)}% 회복</dd>
-              <dt>특성 · ${c.trait.name}</dt><dd>${c.trait.desc}</dd>
+              <dt>고유 스킬 · ${c.skill.name}</dt><dd>${MR.describe(c.skill.desc, sl)}. <em>${MR.Quiz.label(c.quiz, diff)} 퀴즈</em> ${c.skill.bonusDesc}</dd>
+              <dt>궁극기 · ${c.ult.name}</dt><dd>${MR.describe(c.ult.desc, sl)}. 에너지 ${c.maxEnergy} 소모, 퀴즈 정답 시 소모량의 ${Math.round(c.ult.refund * 100)}% 회복</dd>
+              <dt>특성 · ${c.trait.name}</dt><dd>${MR.describe(c.trait.desc, sl)}</dd>
             </dl>
           </div>
         </article>`;
@@ -219,7 +236,10 @@
           <span class="diff-chip">문제 난이도: ${MR.Quiz.difficultyName(diff)}</span>
           <div class="potions">🧪 경험치 물약 <b>${P().state.potions}</b></div>
         </header>
+        ${notice ? `<p class="notice gift">${notice}</p>` : ''}
         ${unlocked ? '' : `<p class="notice">레벨업 기능은 스테이지 ${MR.CONFIG.LEVEL_UNLOCK_STAGE}을 클리어하면 열립니다. 물약은 미리 모아둘 수 있어요.</p>`}
+        ${roster.length > MR.PARTY_SIZE ? `<p class="party-count">출전 멤버 <b>${P().state.party.length} / ${MR.PARTY_SIZE}</b> · 초상화 아래 버튼으로 출전 멤버를 바꿀 수 있어요.</p>` : ''}
+        <p class="skill-note">스킬 레벨은 캐릭터 레벨 ${MR.CONFIG.SKILL_LEVEL_AT.join(' · ')}에서 1 · 2 · 3 · 4로 올라요. (지금은 라파만 스킬 레벨에 따라 효과가 달라져요)</p>
         <div class="char-grid">${cards}</div>
       </div>`;
   }
@@ -227,14 +247,14 @@
   // ---------- 장비 강화 ----------
   function showEquip(flash) {
     const unlocked = P().isEquipUnlocked();
-    if (!equipChar) equipChar = MR.PARTY_ORDER[0];
+    if (!equipChar || !P().isCharUnlocked(equipChar)) equipChar = P().roster()[0];
     const k = equipChar;
     const c = MR.CHARACTERS[k];
     const lv = P().level(k);
     const base = MR.statsAtLevel(c.base, lv);
     const eq = MR.equipBonus(P().state.equip[k]);
 
-    const tabs = MR.PARTY_ORDER.map((key) => {
+    const tabs = P().roster().map((key) => {
       const ch = MR.CHARACTERS[key];
       const total = MR.EQUIP_SLOTS.reduce((sum, sl) => sum + P().enhanceLevel(key, sl.id), 0);
       return `
@@ -320,6 +340,10 @@
   };
 
   async function startBattle(index) {
+    if (!P().isPartyReady()) {
+      showParty(`⚠ 출전 멤버를 ${MR.PARTY_SIZE}명 골라야 전투를 시작할 수 있어요.`);
+      return;
+    }
     currentStageIndex = index;
     const stage = MR.STAGES[index];
     selectedChapter = Number(stage.id.split('-')[0]);
@@ -327,6 +351,7 @@
     battle = new MR.Battle(stage, P().state.levels, io, {
       difficulty: P().state.difficulty,
       equip: P().isEquipUnlocked() ? P().state.equip : null,
+      party: P().state.party,
     });
     const b = battle;
 
@@ -396,9 +421,9 @@
             <div class="unit-name">${a.name} <small>Lv.${a.level}</small></div>
             ${bar('hp', a.hp, a.maxHp, `${a.hp} / ${a.maxHp}`)}
             ${bar('en', a.energy, a.maxEnergy, `⚡ ${a.energy} / ${a.maxEnergy}`)}
-            <div class="chips">${buffChips(a)}</div>
+            <div class="chips">${a.shield ? `<span class="chip shield">🛡 실드 ${a.shield}</span>` : ''}${buffChips(a)}</div>
             <button class="ult-btn ${full && !silenced ? 'ready' : ''}" data-act="ult" data-uid="${a.uid}"
-                    ${b.canUlt(a) && !queued ? '' : 'disabled'} title="${a.def.ult.desc}">
+                    ${b.canUlt(a) && !queued ? '' : 'disabled'} title="${MR.describe(a.def.ult.desc, a.skillLevel)}">
               ${silenced ? '🔇 침묵 중' : queued ? '예약됨' : `궁극기 · ${a.def.ult.name}`}
             </button>
           </div>
@@ -416,7 +441,7 @@
             일반 공격<small>공격력 100% 피해 · 퀴즈 정답 시 SP +1</small>
           </button>
           <button class="btn action primary" data-act="skill" ${b.sp >= 1 && !b.isSilenced(u) ? '' : 'disabled'}>
-            ${sk.name} <span class="cost">SP 1</span><small>${b.isSilenced(u) ? '🔇 침묵 중이라 쓸 수 없어요' : sk.desc}</small>
+            ${sk.name} <span class="cost">SP 1</span><small>${b.isSilenced(u) ? '🔇 침묵 중이라 쓸 수 없어요' : MR.describe(sk.desc, u.skillLevel)}</small>
           </button>
         </div>`;
     } else if (b.current && b.current.side === 'enemy') {
@@ -533,7 +558,7 @@
     const r = el.getBoundingClientRect();
     const n = document.createElement('span');
     n.className = `fx-num ${type}`;
-    n.textContent = type === 'heal' ? `+${amount}` : `-${amount}`;
+    n.textContent = type === 'heal' ? `+${amount}` : type === 'burst' ? `ⅰ -${amount}` : `-${amount}`;
     n.style.left = `${r.left + r.width / 2 + (Math.random() * 30 - 15)}px`;
     n.style.top = `${r.top + r.height * 0.3}px`;
     document.getElementById('fx-layer').appendChild(n);
@@ -659,11 +684,13 @@
         <p>경험치 물약 <b>🧪 +${r.reward}</b> (보유 ${P().state.potions})${r.firstClear ? '' : '<br><small class="repeat-note">반복 클리어 보상</small>'}</p>
         ${r.stones ? `<p>강화석 <b>💎 +${r.stones}</b> (보유 ${P().state.stones})</p>` : ''}
         ${r.levelUpJustUnlocked ? '<p class="unlock">🎉 레벨업 기능이 열렸어요! 「파티 · 레벨업」에서 캐릭터를 강화하세요.</p>' : ''}
-        ${r.equipJustUnlocked ? '<p class="unlock">🎉 장비 강화가 열렸어요! 「장비 강화」에서 강화석으로 장비를 강화하세요.</p>' : ''}`;
+        ${r.equipJustUnlocked ? '<p class="unlock">🎉 장비 강화가 열렸어요! 「장비 강화」에서 강화석으로 장비를 강화하세요.</p>' : ''}
+        ${r.newMembers.map((k) => `<p class="unlock join"><img src="${MR.CHARACTERS[k].image}" alt="">🎉 <b>${MR.CHARACTERS[k].title ? `[${MR.CHARACTERS[k].title}] ` : ''}${iga(MR.CHARACTERS[k].name)}</b> 동료가 되었어요! 「파티 · 레벨업」에서 출전 멤버로 고를 수 있어요.</p>`).join('')}`;
       buttons = `
         ${hasNext ? '<button class="btn primary" data-act="next">다음 스테이지</button>' : ''}
         ${r.levelUpJustUnlocked ? '<button class="btn" data-act="party">파티 · 레벨업</button>' : ''}
         ${r.equipJustUnlocked ? '<button class="btn" data-act="equip">장비 강화</button>' : ''}
+        ${r.newMembers.length && !r.levelUpJustUnlocked ? '<button class="btn" data-act="party">파티 · 레벨업</button>' : ''}
         <button class="btn" data-act="retry">다시 하기</button>
         <button class="btn" data-act="map">스테이지 선택</button>`;
     } else {
@@ -726,8 +753,17 @@
       case 'enhance':
         if (P().enhance(equipChar, el.dataset.slot)) showEquip(el.dataset.slot);
         break;
-      case 'levelup':
-        if (P().levelUp(el.dataset.key)) showParty();
+      case 'levelup': {
+        const key = el.dataset.key;
+        const before = MR.skillLevelFor(P().level(key));
+        if (P().levelUp(key)) {
+          const after = MR.skillLevelFor(P().level(key));
+          showParty(after > before ? `✨ ${MR.CHARACTERS[key].name}의 스킬 레벨이 ${after}${after === 3 ? '으로' : '로'} 올랐어요!` : '');
+        }
+        break;
+      }
+      case 'party-toggle':
+        if (P().toggleParty(el.dataset.key)) showParty();
         break;
       case 'retry':
         closeModal();

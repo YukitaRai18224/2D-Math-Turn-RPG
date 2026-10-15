@@ -15,6 +15,7 @@
     aquamarine: { weapon: '물결 지팡이', hat: '물방울 머리핀', top: '심해 원피스', bottom: '파도 레깅스', shoes: '조개 구두' },
     pricia: { weapon: '정원사의 지팡이', hat: '밀짚모자', top: '꽃무늬 앞치마', bottom: '들판 치마', shoes: '흙길 부츠' },
     hina: { weapon: '해바라기 부채', hat: '하늘색 리본', top: '여름 셔츠', bottom: '면 바지', shoes: '햇살 운동화' },
+    rafa: { weapon: '허수의 열쇠 지팡이', hat: '은빛 머리장식', top: '태엽 코르셋', bottom: '은사 치마', shoes: '자동인형 구두' },
   };
 
   MR.equipValue = function (slot, level) {
