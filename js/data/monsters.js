@@ -31,10 +31,11 @@
       desc: '「허수 표식」으로 아군 전체에 표식, 「허수 봉인」으로 플레이어가 고른 아군을 침묵시킨다',
       look: 'witch',
       palette: 'imaginary',
+      image: 'assets/characters/rafa.png', // 일러스트가 있으면 SVG 대신 이 그림을 쓴다
       boss: true,
       color: '#1f8a9e',
       fixedStats: true,
-      base: { hp: 11000, atk: 1000, def: 150, spd: 98 },
+      base: { hp: 12500, atk: 1000, def: 150, spd: 98 },
       skills: {
         mark: { name: '허수 표식', desc: '모든 아군에게 허수 표식 (다음 퀴즈를 틀리면 1턴 침묵)' },
         seal: { name: '허수 봉인', desc: '플레이어가 고른 아군 1명에게 2턴 침묵. 자료와 통계 퀴즈를 맞히면 1턴' },
@@ -86,7 +87,7 @@
       boss: true,
       color: '#7b3fd0',
       fixedStats: true, // 스테이지 레벨 강화를 받지 않는 고정 스탯
-      base: { hp: 12000, atk: 1300, def: 250, spd: 100 },
+      base: { hp: 15000, atk: 1500, def: 250, spd: 100 },
       skills: {
         cipher: { name: '암호화 치환', desc: '모든 아군에게 공격력 80% 피해' },
         decrypt: { name: '복호화 엔진', desc: '자신의 최대 체력 15% 회복 (체력 50% 이하일 때, 4턴마다 1회)' },

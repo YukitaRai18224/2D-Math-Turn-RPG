@@ -10,6 +10,8 @@
   MR.PARTY_SIZE = 4;
 
   const pct = (x) => Math.round(x * 100);
+  // 스킬 레벨(1~4)에 맞는 값
+  const L = (arr, lv) => arr[Math.min(arr.length, Math.max(1, lv || 1)) - 1];
 
   MR.CHARACTERS = {
     kagari: {
@@ -22,25 +24,29 @@
       quiz: 'multiply',
       skill: {
         name: '홍련 베기',
-        desc: '선택한 적에게 공격력 200% 피해',
-        bonusDesc: '정답이면 피해가 300%로 증가',
+        mult: [2.0, 2.2, 2.45, 2.7],
+        bonus: 1.0, // 퀴즈 정답 시 더해지는 계수
+        desc: (lv) => `선택한 적에게 공격력 ${pct(L(K.skill.mult, lv))}% 피해`,
+        bonusDesc: (lv) => `정답이면 피해가 ${pct(L(K.skill.mult, lv) + K.skill.bonus)}%로 증가`,
         run(b, self, ok) {
-          b.dealDamage(self, b.getTarget(), ok ? 3.0 : 2.0);
+          b.dealDamage(self, b.getTarget(), L(this.mult, self.skillLevel) + (ok ? this.bonus : 0));
         },
       },
       ult: {
         name: '진홍의 일섬',
-        desc: '선택한 적에게 공격력 450% 피해',
+        mult: [4.5, 4.9, 5.4, 6.0],
         refund: 0.3,
+        desc: (lv) => `선택한 적에게 공격력 ${pct(L(K.ult.mult, lv))}% 피해`,
         run(b, self) {
-          b.dealDamage(self, b.getTarget(), 4.5);
+          b.dealDamage(self, b.getTarget(), L(this.mult, self.skillLevel));
         },
       },
       trait: {
         name: '마무리 일격',
-        desc: '체력이 50% 이하인 적에게 주는 피해 +25%',
+        bonus: [0.25, 0.28, 0.32, 0.36],
+        desc: (lv) => `체력이 50% 이하인 적에게 주는 피해 +${pct(L(K.trait.bonus, lv))}%`,
         damageBonus(b, self, target) {
-          return target.hp / target.maxHp <= 0.5 ? 0.25 : 0;
+          return target.hp / target.maxHp <= 0.5 ? L(this.bonus, self.skillLevel) : 0;
         },
       },
     },
@@ -55,30 +61,35 @@
       quiz: 'fraction',
       skill: {
         name: '물보라',
-        desc: '모든 적에게 공격력 110% 피해',
-        bonusDesc: '정답이면 먼저 모든 적의 방어력을 30% 낮춤 (2턴)',
+        mult: [1.1, 1.2, 1.32, 1.45],
+        defDown: [0.3, 0.3, 0.35, 0.4],
+        desc: (lv) => `모든 적에게 공격력 ${pct(L(A.skill.mult, lv))}% 피해`,
+        bonusDesc: (lv) => `정답이면 먼저 모든 적의 방어력을 ${pct(L(A.skill.defDown, lv))}% 낮춤 (2턴)`,
         run(b, self, ok) {
           if (ok) {
+            const down = L(this.defDown, self.skillLevel);
             for (const e of b.aliveEnemies()) {
-              b.addBuff(e, { id: 'aqua_skill', stat: 'def', pct: -0.3, turns: 2, label: '방어력' });
+              b.addBuff(e, { id: 'aqua_skill', stat: 'def', pct: -down, turns: 2, label: '방어력' });
             }
           }
-          b.hitAll(self, 1.1);
+          b.hitAll(self, L(this.mult, self.skillLevel));
         },
       },
       ult: {
         name: '해일',
-        desc: '모든 적에게 공격력 250% 피해',
+        mult: [2.5, 2.75, 3.0, 3.3],
         refund: 0.3,
+        desc: (lv) => `모든 적에게 공격력 ${pct(L(A.ult.mult, lv))}% 피해`,
         run(b, self) {
-          b.hitAll(self, 2.5);
+          b.hitAll(self, L(this.mult, self.skillLevel));
         },
       },
       trait: {
         name: '파도의 리듬',
-        desc: '3명 이상의 적을 동시에 공격하면 피해 +20%',
+        bonus: [0.2, 0.22, 0.25, 0.28],
+        desc: (lv) => `3명 이상의 적을 동시에 공격하면 피해 +${pct(L(A.trait.bonus, lv))}%`,
         damageBonus(b, self, target, ctx) {
-          return (ctx.targetCount || 1) >= 3 ? 0.2 : 0;
+          return (ctx.targetCount || 1) >= 3 ? L(this.bonus, self.skillLevel) : 0;
         },
       },
     },
@@ -93,29 +104,33 @@
       quiz: 'division',
       skill: {
         name: '꽃바구니',
-        desc: '체력 비율이 가장 낮은 아군을 공격력 250%만큼 회복',
-        bonusDesc: '정답이면 나머지 아군도 공격력 100%만큼 회복',
+        mult: [2.5, 2.75, 3.0, 3.3],
+        others: [1.0, 1.1, 1.2, 1.35],
+        desc: (lv) => `체력 비율이 가장 낮은 아군을 공격력 ${pct(L(P.skill.mult, lv))}%만큼 회복`,
+        bonusDesc: (lv) => `정답이면 나머지 아군도 공격력 ${pct(L(P.skill.others, lv))}%만큼 회복`,
         run(b, self, ok) {
           const main = b.lowestHpAlly();
-          b.heal(self, main, 2.5);
+          b.heal(self, main, L(this.mult, self.skillLevel));
           if (ok) {
-            for (const a of b.aliveAllies()) if (a !== main) b.heal(self, a, 1.0);
+            for (const a of b.aliveAllies()) if (a !== main) b.heal(self, a, L(this.others, self.skillLevel));
           }
         },
       },
       ult: {
         name: '봄의 정원',
-        desc: '모든 아군을 공격력 300%만큼 회복',
+        mult: [3.0, 3.3, 3.6, 4.0],
         refund: 0.3,
+        desc: (lv) => `모든 아군을 공격력 ${pct(L(P.ult.mult, lv))}%만큼 회복`,
         run(b, self) {
-          for (const a of b.aliveAllies()) b.heal(self, a, 3.0);
+          for (const a of b.aliveAllies()) b.heal(self, a, L(this.mult, self.skillLevel));
         },
       },
       trait: {
         name: '응급 처치',
-        desc: '체력이 30% 이하인 아군을 회복할 때 회복량 +30%',
+        bonus: [0.3, 0.35, 0.4, 0.45],
+        desc: (lv) => `체력이 30% 이하인 아군을 회복할 때 회복량 +${pct(L(P.trait.bonus, lv))}%`,
         healBonus(b, self, target) {
-          return target.hp / target.maxHp <= 0.3 ? 0.3 : 0;
+          return target.hp / target.maxHp <= 0.3 ? L(this.bonus, self.skillLevel) : 0;
         },
       },
     },
@@ -130,30 +145,36 @@
       quiz: 'geometry',
       skill: {
         name: '해바라기 응원',
-        desc: '모든 아군의 공격력 +20% (2턴)',
-        bonusDesc: '정답이면 공격력 증가량이 +35%로 상승',
+        buff: [0.2, 0.22, 0.25, 0.28],
+        bonusBuff: [0.35, 0.38, 0.42, 0.46],
+        desc: (lv) => `모든 아군의 공격력 +${pct(L(H.skill.buff, lv))}% (2턴)`,
+        bonusDesc: (lv) => `정답이면 공격력 증가량이 +${pct(L(H.skill.bonusBuff, lv))}%로 상승`,
         run(b, self, ok) {
+          const v = L(ok ? this.bonusBuff : this.buff, self.skillLevel);
           for (const a of b.aliveAllies()) {
-            b.addBuff(a, { id: 'hina_skill', stat: 'atk', pct: ok ? 0.35 : 0.2, turns: 2, label: '공격력' });
+            b.addBuff(a, { id: 'hina_skill', stat: 'atk', pct: v, turns: 2, label: '공격력' });
           }
         },
       },
       ult: {
         name: '한여름의 햇살',
-        desc: '모든 아군의 공격력 +40% (3턴), 스킬 포인트 +1',
+        buff: [0.4, 0.43, 0.47, 0.52],
+        sp: [1, 1, 1, 2],
+        desc: (lv) => `모든 아군의 공격력 +${pct(L(H.ult.buff, lv))}% (3턴), 스킬 포인트 +${L(H.ult.sp, lv)}`,
         refund: 0.3,
         run(b, self) {
           for (const a of b.aliveAllies()) {
-            b.addBuff(a, { id: 'hina_ult', stat: 'atk', pct: 0.4, turns: 3, label: '공격력' });
+            b.addBuff(a, { id: 'hina_ult', stat: 'atk', pct: L(this.buff, self.skillLevel), turns: 3, label: '공격력' });
           }
-          b.gainSp(1);
+          b.gainSp(L(this.sp, self.skillLevel));
         },
       },
       trait: {
         name: '준비성',
-        desc: '전투 시작 시 스킬 포인트 +1',
-        onBattleStart(b) {
-          b.gainSp(1);
+        sp: [1, 1, 1, 2],
+        desc: (lv) => `전투 시작 시 스킬 포인트 +${L(H.trait.sp, lv)}`,
+        onBattleStart(b, self) {
+          b.gainSp(L(this.sp, self.skillLevel));
         },
       },
     },
@@ -223,4 +244,10 @@
       },
     },
   };
+
+  // 설명 함수에서 쓰는 짧은 이름
+  const K = MR.CHARACTERS.kagari;
+  const A = MR.CHARACTERS.aquamarine;
+  const P = MR.CHARACTERS.pricia;
+  const H = MR.CHARACTERS.hina;
 })((globalThis.MR = globalThis.MR || {}));

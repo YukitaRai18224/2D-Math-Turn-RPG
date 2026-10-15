@@ -410,7 +410,7 @@
       const ok = await this.askQuiz(u, {
         kind: u.def.quiz,
         title: `${u.name} · ${sk.name}`,
-        reward: sk.bonusDesc,
+        reward: MR.describe(sk.bonusDesc, u.skillLevel),
       });
       if (this.over) return;
       this.log(`${u.name}의 고유 스킬 「${sk.name}」${ok ? ' (보너스 발동!)' : ''}`);

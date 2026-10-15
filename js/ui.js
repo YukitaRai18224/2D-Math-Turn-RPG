@@ -18,6 +18,7 @@
   }
 
   function monsterSvg(def) {
+    if (def.image) return `<img class="slime-svg monster-img" src="${def.image}" alt="">`;
     return def.look === 'witch' ? witchSvg(def.palette) : slimeSvg(def.look);
   }
 
@@ -220,7 +221,7 @@
             <p class="skill-lv">스킬 Lv.${sl}${nextAt ? ` <small>· 캐릭터 Lv.${nextAt}에 스킬 Lv.${sl + 1}</small>` : ' <small>· 최대</small>'}</p>
             <dl class="kit">
               <dt>일반 공격</dt><dd>선택한 적에게 공격력 100% 피해. <em>${MR.Quiz.label('addSub', diff)} 퀴즈</em> 정답 시 스킬 포인트 +1</dd>
-              <dt>고유 스킬 · ${c.skill.name}</dt><dd>${MR.describe(c.skill.desc, sl)}. <em>${MR.Quiz.label(c.quiz, diff)} 퀴즈</em> ${c.skill.bonusDesc}</dd>
+              <dt>고유 스킬 · ${c.skill.name}</dt><dd>${MR.describe(c.skill.desc, sl)}. <em>${MR.Quiz.label(c.quiz, diff)} 퀴즈</em> ${MR.describe(c.skill.bonusDesc, sl)}</dd>
               <dt>궁극기 · ${c.ult.name}</dt><dd>${MR.describe(c.ult.desc, sl)}. 에너지 ${c.maxEnergy} 소모, 퀴즈 정답 시 소모량의 ${Math.round(c.ult.refund * 100)}% 회복</dd>
               <dt>특성 · ${c.trait.name}</dt><dd>${MR.describe(c.trait.desc, sl)}</dd>
             </dl>
@@ -239,7 +240,7 @@
         ${notice ? `<p class="notice gift">${notice}</p>` : ''}
         ${unlocked ? '' : `<p class="notice">레벨업 기능은 스테이지 ${MR.CONFIG.LEVEL_UNLOCK_STAGE}을 클리어하면 열립니다. 물약은 미리 모아둘 수 있어요.</p>`}
         ${roster.length > MR.PARTY_SIZE ? `<p class="party-count">출전 멤버 <b>${P().state.party.length} / ${MR.PARTY_SIZE}</b> · 초상화 아래 버튼으로 출전 멤버를 바꿀 수 있어요.</p>` : ''}
-        <p class="skill-note">스킬 레벨은 캐릭터 레벨 ${MR.CONFIG.SKILL_LEVEL_AT.join(' · ')}에서 1 · 2 · 3 · 4로 올라요. (지금은 라파만 스킬 레벨에 따라 효과가 달라져요)</p>
+        <p class="skill-note">스킬 레벨은 캐릭터 레벨 ${MR.CONFIG.SKILL_LEVEL_AT.join(' · ')}에서 1 · 2 · 3 · 4로 오르고, 스킬 레벨이 오르면 고유 스킬·궁극기·특성이 강해져요.</p>
         <div class="char-grid">${cards}</div>
       </div>`;
   }
