@@ -1,4 +1,5 @@
-// 진행 상황 저장 (브라우저 localStorage): 클리어한 스테이지, 경험치 물약, 캐릭터 레벨, 장비 강화, 강화석, 출전 파티
+// 진행 상황 저장 (브라우저 localStorage): 클리어한 스테이지, 경험치 물약, 캐릭터 레벨, 장비 강화, 강화석, 출전 파티,
+// 보유 캐릭터, 돌파 단계와 재료, 보석(루비·사파이어·에메랄드)
 (function (MR) {
   const KEY = 'mathrpg.save.v1';
 
@@ -10,12 +11,19 @@
       equip[k] = {};
       for (const slot of MR.EQUIP_SLOTS) equip[k][slot.id] = 0;
     }
-    return { cleared: {}, potions: 0, stones: 0, levels, equip, party: [...MR.PARTY_ORDER], difficulty: MR.Quiz.DEFAULT, stoneBackfill: true };
+    const owned = {};
+    for (const k of MR.PARTY_ORDER) owned[k] = true;
+    return {
+      cleared: {}, potions: 0, stones: 0, levels, equip, party: [...MR.PARTY_ORDER], difficulty: MR.Quiz.DEFAULT,
+      owned, copies: {}, breaks: {}, gems: { ruby: 0, sapphire: 0, emerald: 0 },
+      stoneBackfill: true, gemBackfill: true,
+    };
   }
 
   MR.Progress = {
     state: defaults(),
     backfillNotice: 0, // 이번 접속에서 지급한 소급 강화석 (화면 안내용)
+    gemBackfillNotice: null, // 이번 접속에서 지급한 소급 보석
 
     load() {
       let saved = null;
@@ -33,6 +41,10 @@
         stones: (saved && saved.stones) || 0,
         equip: d.equip,
       };
+      this.state.owned = { ...d.owned, ...((saved && saved.owned) || {}) };
+      this.state.copies = { ...((saved && saved.copies) || {}) };
+      this.state.breaks = { ...((saved && saved.breaks) || {}) };
+      this.state.gems = { ...d.gems, ...((saved && saved.gems) || {}) };
       const savedEquip = (saved && saved.equip) || {};
       for (const k of MR.CHARACTER_ORDER) this.state.equip[k] = { ...d.equip[k], ...(savedEquip[k] || {}) };
       // 출전 파티: 저장된 값 중 열린 캐릭터만, 중복 없이
@@ -51,6 +63,22 @@
         this.state.stones += owed;
         this.state.stoneBackfill = true;
         this.backfillNotice = owed;
+        this.save();
+      }
+
+      // 보석 업데이트 전에 클리어한 스테이지의 최초 클리어 보석을 한 번 지급한다
+      this.state.gemBackfill = !!(saved && saved.gemBackfill);
+      this.gemBackfillNotice = null;
+      if (saved && !this.state.gemBackfill) {
+        const owedGems = { ruby: 0, sapphire: 0, emerald: 0 };
+        for (const st of MR.STAGES) {
+          if (!this.isCleared(st.id)) continue;
+          const g = MR.gemReward(st);
+          for (const id in owedGems) owedGems[id] += g[id];
+        }
+        for (const id in owedGems) this.state.gems[id] += owedGems[id];
+        this.state.gemBackfill = true;
+        if (owedGems.ruby) this.gemBackfillNotice = owedGems;
         this.save();
       }
     },
@@ -88,9 +116,60 @@
       return this.isCleared(MR.CONFIG.LEVEL_UNLOCK_STAGE);
     },
 
+    // 보유한 캐릭터: 처음부터 있거나, 합류 스테이지를 클리어했거나, 뽑기로 얻은 캐릭터
     isCharUnlocked(key) {
       const def = MR.CHARACTERS[key];
-      return !!def && (!def.unlockStage || this.isCleared(def.unlockStage));
+      return !!def && (!!this.state.owned[key] || (!!def.unlockStage && this.isCleared(def.unlockStage)));
+    },
+
+    // ---------- 돌파 ----------
+    breakLevel(key) {
+      return this.state.breaks[key] || 0;
+    },
+
+    copies(key) {
+      return this.state.copies[key] || 0;
+    },
+
+    // 다음 돌파에 필요한 재료 수 (최대 돌파면 null)
+    breakCost(key) {
+      const lv = this.breakLevel(key);
+      return lv >= MR.BREAKTHROUGH.max ? null : MR.BREAKTHROUGH.costs[lv];
+    },
+
+    canBreak(key) {
+      const cost = this.breakCost(key);
+      return this.isCharUnlocked(key) && cost !== null && this.copies(key) >= cost;
+    },
+
+    breakthrough(key) {
+      if (!this.canBreak(key)) return false;
+      this.state.copies[key] = this.copies(key) - this.breakCost(key);
+      this.state.breaks[key] = this.breakLevel(key) + 1;
+      this.save();
+      return true;
+    },
+
+    // ---------- 뽑기 ----------
+    // count 회 뽑는다. 처음 나온 캐릭터는 동료가 되고, 이미 있는 캐릭터는 돌파 재료가 된다.
+    pull(count) {
+      const cost = count === 10 ? MR.GACHA.cost10 : MR.GACHA.cost * count;
+      if (this.state.gems.ruby < cost) return null;
+      this.state.gems.ruby -= cost;
+      const pool = MR.GACHA.pool();
+      const results = [];
+      for (let i = 0; i < count; i++) {
+        const key = pool[Math.floor(Math.random() * pool.length)];
+        if (this.isCharUnlocked(key)) {
+          this.state.copies[key] = this.copies(key) + 1;
+          results.push({ key, isNew: false });
+        } else {
+          this.state.owned[key] = true;
+          results.push({ key, isNew: true });
+        }
+      }
+      this.save();
+      return results;
     },
 
     // 동료가 된 캐릭터 목록 (CHARACTER_ORDER 순서)
@@ -184,12 +263,31 @@
       // 강화석은 장비가 열린 뒤부터 (장비를 여는 1-8 클리어 포함) 받는다
       const stones = this.isEquipUnlocked() ? MR.CONFIG.stoneReward(stage) : 0;
       this.state.stones += stones;
+      // 최초 클리어 보석
+      const gems = firstClear ? MR.gemReward(stage) : null;
+      if (gems) for (const id in gems) this.state.gems[id] += gems[id];
+      // 합류 캐릭터: 이미 뽑기로 얻었다면 돌파 재료 1개로 준다
+      const newMembers = [];
+      const joinCopies = [];
+      if (firstClear) {
+        for (const k of MR.CHARACTER_ORDER.filter((c) => MR.CHARACTERS[c].unlockStage === stage.id)) {
+          if (this.state.owned[k]) {
+            this.state.copies[k] = this.copies(k) + 1;
+            joinCopies.push(k);
+          } else {
+            this.state.owned[k] = true;
+            newMembers.push(k);
+          }
+        }
+      }
       this.save();
       return {
         reward,
         stones,
         firstClear,
-        newMembers: firstClear ? MR.CHARACTER_ORDER.filter((k) => MR.CHARACTERS[k].unlockStage === stage.id) : [],
+        gems,
+        newMembers,
+        joinCopies,
         levelUpJustUnlocked: !wasUnlocked && this.isLevelUpUnlocked(),
         equipJustUnlocked: !equipWasUnlocked && this.isEquipUnlocked(),
       };

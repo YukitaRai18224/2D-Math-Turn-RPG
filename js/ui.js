@@ -77,6 +77,13 @@
       </svg>`;
   }
 
+  // 보석 아이콘과 수량
+  const gemIcon = (id) => `<i class="gem ${id}" aria-hidden="true"></i>`;
+  function gemBadges(gems, cls = 'potions') {
+    return MR.GEMS.map((g) => `<div class="${cls} gem-count" title="${g.name}">${gemIcon(g.id)} ${g.name} <b>${gems[g.id] || 0}</b></div>`).join('');
+  }
+  const stars = (n) => `<span class="stars" title="${n}돌파">${'★'.repeat(n)}${'☆'.repeat(MR.BREAKTHROUGH.max - n)}</span>`;
+
   // 이름 뒤 조사: 받침이 있으면 '이', 없으면 '가'
   function iga(name) {
     const code = name.charCodeAt(name.length - 1) - 0xac00;
@@ -129,7 +136,9 @@
           <h1>수학 턴제 RPG</h1>
           <div class="potions" title="경험치 물약">🧪 경험치 물약 <b>${s.potions}</b></div>
           ${P().isEquipUnlocked() ? `<div class="potions" title="강화석">💎 강화석 <b>${s.stones}</b></div>` : ''}
+          ${gemBadges(s.gems)}
         </header>
+        ${P().gemBackfillNotice ? `<p class="notice gift">🎁 지금까지 클리어한 스테이지의 최초 클리어 보석을 지급했어요: ${MR.GEMS.map((g) => `${gemIcon(g.id)} ${g.name} ${P().gemBackfillNotice[g.id]}`).join(' · ')}</p>` : ''}
         ${P().backfillNotice ? `<p class="notice gift">🎁 장비 업데이트 전에 클리어한 스테이지의 강화석 <b>💎 ${P().backfillNotice}개</b>를 지급했어요.</p>` : ''}
         <section class="party-strip">
           ${P().isPartyReady() ? '' : `<span class="party-warn">⚠ 출전 멤버 ${P().state.party.length}/${MR.PARTY_SIZE}명 · 파티 화면에서 골라 주세요</span>`}
@@ -138,6 +147,7 @@
             return `<div class="party-face" style="--c:${c.color}"><img src="${c.image}" alt=""><span>${c.name}<small>Lv.${P().level(k)}</small></span></div>`;
           }).join('')}
           <div class="party-buttons">
+            <button class="btn gacha-btn" data-act="gacha">${gemIcon('ruby')} 캐릭터 뽑기</button>
             <button class="btn" data-act="party">파티 · 레벨업${P().isLevelUpUnlocked() ? '' : ' 🔒'}</button>
             <button class="btn" data-act="equip" title="${P().isEquipUnlocked() ? '' : `${MR.CONFIG.EQUIP_UNLOCK_STAGE} 클리어 시 열림`}">장비 강화${P().isEquipUnlocked() ? '' : ' 🔒'}</button>
           </div>
@@ -200,6 +210,16 @@
       else if (cost === null) btn = `<button class="btn" disabled>최대 레벨</button>`;
       else btn = `<button class="btn primary" data-act="levelup" data-key="${k}" ${P().canLevelUp(k) ? '' : 'disabled'}>레벨업 (🧪 ${cost})</button>`;
       const sl = MR.skillLevelFor(lv);
+      const bl = P().breakLevel(k);
+      const bcost = P().breakCost(k);
+      const breakBtn = bcost === null
+        ? '<button class="btn" disabled>최대 돌파</button>'
+        : `<button class="btn break-btn" data-act="break" data-key="${k}" ${P().canBreak(k) ? '' : 'disabled'}>돌파 (재료 ${P().copies(k)}/${bcost})</button>`;
+      const breakBox = `
+        <div class="break-box">
+          <div class="break-head">${stars(bl)} <b>${bl}돌파</b>${bl ? ` <small>능력치 +${Math.round(bl * MR.BREAKTHROUGH.statPct * 100)}%</small>` : ''} ${breakBtn}</div>
+          <ul class="break-effects">${MR.BREAKTHROUGH.effects.map((ef, i) => `<li class="${i < bl ? 'on' : ''}"><b>${i + 1}돌파</b> ${ef.desc}</li>`).join('')}</ul>
+        </div>`;
       const nextAt = MR.nextSkillLevelAt(lv);
       const inParty = P().inParty(k);
       const partyFull = P().state.party.length >= MR.PARTY_SIZE;
@@ -218,6 +238,7 @@
             </table>
             ${equipOn ? '<p class="equip-note">파란 숫자는 장비로 오른 능력치예요.</p>' : ''}
             ${btn}
+            ${breakBox}
             <p class="skill-lv">스킬 Lv.${sl}${nextAt ? ` <small>· 캐릭터 Lv.${nextAt}에 스킬 Lv.${sl + 1}</small>` : ' <small>· 최대</small>'}</p>
             <dl class="kit">
               <dt>일반 공격</dt><dd>선택한 적에게 공격력 100% 피해. <em>${MR.Quiz.label('addSub', diff)} 퀴즈</em> 정답 시 스킬 포인트 +1</dd>
@@ -239,9 +260,48 @@
         </header>
         ${notice ? `<p class="notice gift">${notice}</p>` : ''}
         ${unlocked ? '' : `<p class="notice">레벨업 기능은 스테이지 ${MR.CONFIG.LEVEL_UNLOCK_STAGE}을 클리어하면 열립니다. 물약은 미리 모아둘 수 있어요.</p>`}
+        <p class="skill-note">돌파: 뽑기에서 겹친 캐릭터는 돌파 재료가 돼요. 1~4돌파는 재료 1개, 5~6돌파는 재료 2개가 필요하고, 돌파할 때마다 능력치 +${Math.round(MR.BREAKTHROUGH.statPct * 100)}%와 추가 효과를 얻어요.</p>
         ${roster.length > MR.PARTY_SIZE ? `<p class="party-count">출전 멤버 <b>${P().state.party.length} / ${MR.PARTY_SIZE}</b> · 초상화 아래 버튼으로 출전 멤버를 바꿀 수 있어요.</p>` : ''}
         <p class="skill-note">스킬 레벨은 캐릭터 레벨 ${MR.CONFIG.SKILL_LEVEL_AT.join(' · ')}에서 1 · 2 · 3 · 4로 오르고, 스킬 레벨이 오르면 고유 스킬·궁극기·특성이 강해져요.</p>
         <div class="char-grid">${cards}</div>
+      </div>`;
+  }
+
+  // ---------- 캐릭터 뽑기 ----------
+  function showGacha(results) {
+    const ruby = P().state.gems.ruby;
+    const pool = MR.GACHA.pool();
+    const rate = Math.round(1000 / pool.length) / 10;
+    const resultCards = (results || []).map((r, i) => {
+      const c = MR.CHARACTERS[r.key];
+      return `
+        <div class="pull-card ${r.isNew ? 'new' : ''}" style="--c:${c.color};animation-delay:${i * 90}ms">
+          ${r.isNew ? '<span class="pull-new">NEW</span>' : ''}
+          <img src="${c.image}" alt="">
+          <b>${c.name}</b>
+          <small>${r.isNew ? '동료가 되었어요!' : `돌파 재료 +1 (보유 ${P().copies(r.key)})`}</small>
+        </div>`;
+    }).join('');
+    app().innerHTML = `
+      <div class="screen gacha">
+        <header class="topbar">
+          <button class="btn" data-act="map">← 스테이지 선택</button>
+          <h1>캐릭터 뽑기</h1>
+          ${gemBadges(P().state.gems)}
+        </header>
+        <section class="gacha-banner">
+          <div class="gacha-faces">
+            ${pool.map((k) => `<div class="gacha-face ${P().isCharUnlocked(k) ? '' : 'missing'}" style="--c:${MR.CHARACTERS[k].color}">
+              <img src="${MR.CHARACTERS[k].image}" alt=""><span>${MR.CHARACTERS[k].name}</span><small>${rate}%</small></div>`).join('')}
+          </div>
+          <p>처음 나온 캐릭터는 동료가 되고, 이미 있는 캐릭터는 <b>돌파 재료</b>가 돼요. 루비는 스테이지를 처음 클리어하면 얻어요.</p>
+          <div class="gacha-buttons">
+            <button class="btn primary" data-act="pull" data-count="1" ${ruby >= MR.GACHA.cost ? '' : 'disabled'}>1회 뽑기 <small>${gemIcon('ruby')} ${MR.GACHA.cost}</small></button>
+            <button class="btn primary" data-act="pull" data-count="10" ${ruby >= MR.GACHA.cost10 ? '' : 'disabled'}>10회 뽑기 <small>${gemIcon('ruby')} ${MR.GACHA.cost10}</small></button>
+          </div>
+        </section>
+        ${results ? `<section class="pull-results">${resultCards}</section>
+          <p class="center"><button class="btn" data-act="party">파티 · 돌파 하러 가기</button></p>` : ''}
       </div>`;
   }
 
@@ -353,6 +413,7 @@
       difficulty: P().state.difficulty,
       equip: P().isEquipUnlocked() ? P().state.equip : null,
       party: P().state.party,
+      breaks: P().state.breaks,
     });
     const b = battle;
 
@@ -419,7 +480,7 @@
         <div class="ally-card ${a.alive ? '' : 'dead'} ${a === b.current ? 'active' : ''} ${silenced ? 'silenced' : ''}" data-fx="${a.uid}" data-ally="${a.uid}" style="--c:${a.def.color}">
           <div class="portrait"><img src="${a.def.image}" alt="${a.name}"></div>
           <div class="ally-info">
-            <div class="unit-name">${a.name} <small>Lv.${a.level}</small></div>
+            <div class="unit-name">${a.name} <small>Lv.${a.level}${a.breakLevel ? ` · ${a.breakLevel}돌` : ''}</small></div>
             ${bar('hp', a.hp, a.maxHp, `${a.hp} / ${a.maxHp}`)}
             ${bar('en', a.energy, a.maxEnergy, `⚡ ${a.energy} / ${a.maxEnergy}`)}
             <div class="chips">${a.shield ? `<span class="chip shield">🛡 실드 ${a.shield}</span>` : ''}${buffChips(a)}</div>
@@ -684,6 +745,8 @@
       body = `
         <p>경험치 물약 <b>🧪 +${r.reward}</b> (보유 ${P().state.potions})${r.firstClear ? '' : '<br><small class="repeat-note">반복 클리어 보상</small>'}</p>
         ${r.stones ? `<p>강화석 <b>💎 +${r.stones}</b> (보유 ${P().state.stones})</p>` : ''}
+        ${r.gems ? `<p class="gem-reward">최초 클리어 보상 ${MR.GEMS.map((g) => `<span>${gemIcon(g.id)} ${g.name} <b>+${r.gems[g.id]}</b></span>`).join('')}</p>` : ''}
+        ${r.joinCopies.map((k) => `<p class="unlock">${MR.CHARACTERS[k].name}은(는) 이미 동료라서 돌파 재료 1개를 얻었어요.</p>`).join('')}
         ${r.levelUpJustUnlocked ? '<p class="unlock">🎉 레벨업 기능이 열렸어요! 「파티 · 레벨업」에서 캐릭터를 강화하세요.</p>' : ''}
         ${r.equipJustUnlocked ? '<p class="unlock">🎉 장비 강화가 열렸어요! 「장비 강화」에서 강화석으로 장비를 강화하세요.</p>' : ''}
         ${r.newMembers.map((k) => `<p class="unlock join"><img src="${MR.CHARACTERS[k].image}" alt="">🎉 <b>${MR.CHARACTERS[k].title ? `[${MR.CHARACTERS[k].title}] ` : ''}${iga(MR.CHARACTERS[k].name)}</b> 동료가 되었어요! 「파티 · 레벨업」에서 출전 멤버로 고를 수 있어요.</p>`).join('')}`;
@@ -763,6 +826,20 @@
         }
         break;
       }
+      case 'gacha':
+        closeModal();
+        showGacha();
+        break;
+      case 'pull': {
+        const results = P().pull(Number(el.dataset.count));
+        if (results) showGacha(results);
+        break;
+      }
+      case 'break':
+        if (P().breakthrough(el.dataset.key)) {
+          showParty(`⭐ ${MR.CHARACTERS[el.dataset.key].name} ${P().breakLevel(el.dataset.key)}돌파! ${MR.BREAKTHROUGH.effects[P().breakLevel(el.dataset.key) - 1].desc}`);
+        }
+        break;
       case 'party-toggle':
         if (P().toggleParty(el.dataset.key)) showParty();
         break;

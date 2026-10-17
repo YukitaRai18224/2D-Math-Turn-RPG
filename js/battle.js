@@ -8,6 +8,7 @@
 // options.difficulty: 퀴즈 난이도 (MR.Quiz.DIFFICULTIES 의 id)
 // options.equip: { 캐릭터 key: { weapon: 강화 단계, ... } } (없으면 장비 없음)
 // options.party: 출전하는 캐릭터 key 배열 (없으면 MR.PARTY_ORDER)
+// options.breaks: { 캐릭터 key: 돌파 단계 } (없으면 0)
 //   delay(ms)           → Promise
 //   update()            화면 갱신
 //   log(text)           전투 기록
@@ -18,15 +19,17 @@
 (function (MR) {
   const ENEMY_LETTERS = 'ABCD';
 
-  function makeAlly(key, level, equipLevels) {
+  function makeAlly(key, level, equipLevels, breakLevel) {
     const def = MR.CHARACTERS[key];
     const s = MR.statsAtLevel(def.base, level);
     const e = MR.equipBonus(equipLevels);
-    const hp = s.hp + e.hp;
+    const br = MR.breakthroughBonus(breakLevel);
+    const hp = Math.round((s.hp + e.hp) * br.statMult);
     return {
       uid: `a_${key}`, key, side: 'ally', def, name: def.name, level, skillLevel: MR.skillLevelFor(level), shield: 0,
-      maxHp: hp, hp, baseAtk: s.atk + e.atk, baseDef: s.def + e.def, spd: s.spd + e.spd,
-      maxEnergy: def.maxEnergy, energy: Math.round(def.maxEnergy * MR.CONFIG.ENERGY.start),
+      breakLevel: breakLevel || 0, br,
+      maxHp: hp, hp, baseAtk: Math.round((s.atk + e.atk) * br.statMult), baseDef: Math.round((s.def + e.def) * br.statMult), spd: s.spd + e.spd,
+      maxEnergy: def.maxEnergy, energy: Math.min(def.maxEnergy, Math.round(def.maxEnergy * MR.CONFIG.ENERGY.start) + br.startEnergy),
       buffs: [], alive: true,
     };
   }
@@ -53,7 +56,9 @@
       this.difficulty = options.difficulty || MR.Quiz.DEFAULT;
       const equip = options.equip || {};
       const party = options.party || MR.PARTY_ORDER;
-      this.allies = party.map((k) => makeAlly(k, levels[k] || 1, equip[k]));
+      const breaks = options.breaks || {};
+      this.allies = party.map((k) => makeAlly(k, levels[k] || 1, equip[k], breaks[k]));
+      this.powerUnit = null; // 고유 스킬을 쓰는 중인 캐릭터 (돌파 '숙련' 효과용)
       this.enemies = stage.enemies.map((k, i) => {
         // 같은 종류가 여러 마리면 그 종류 안에서의 순서로 A, B, C… 를 붙인다
         const same = stage.enemies.filter((x) => x === k).length;
@@ -149,7 +154,8 @@
       if (!target || !target.alive) return 0;
       const trait = src.def.trait;
       const bonus = trait && trait.damageBonus ? trait.damageBonus(this, src, target, ctx) : 0;
-      const dmg = this.applyHit(target, this.stat(src, 'atk') * mult * (1 + bonus));
+      const power = this.powerUnit === src ? src.br.skillPower : 1;
+      const dmg = this.applyHit(target, this.stat(src, 'atk') * mult * (1 + bonus) * power);
       if (target.side === 'ally') this.gainEnergy(target, MR.CONFIG.ENERGY.hit);
       if (target.alive) this.checkImagMark(src, target, dmg);
       return dmg;
@@ -158,7 +164,8 @@
     // 방어력을 적용해 피해를 주고(실드가 먼저 막는다) 준 피해량을 돌려준다
     applyHit(target, raw, fxType = 'damage') {
       const k = MR.CONFIG.DEF_K;
-      const dmg = Math.max(1, Math.round((raw * k) / (k + this.stat(target, 'def'))));
+      const taken = target.br ? target.br.damageTaken : 1;
+      const dmg = Math.max(1, Math.round((raw * k * taken) / (k + this.stat(target, 'def'))));
       const absorbed = Math.min(target.shield || 0, dmg);
       if (absorbed) target.shield -= absorbed;
       target.hp = Math.max(0, target.hp - (dmg - absorbed));
@@ -226,7 +233,8 @@
       if (!target || !target.alive) return 0;
       const trait = src.def.trait;
       const bonus = trait && trait.healBonus ? trait.healBonus(this, src, target) : 0;
-      return this.restoreHp(target, Math.round(this.stat(src, 'atk') * mult * (1 + bonus)));
+      const power = this.powerUnit === src ? src.br.skillPower : 1;
+      return this.restoreHp(target, Math.round(this.stat(src, 'atk') * mult * (1 + bonus) * power));
     }
 
     // 최대 체력 비율로 회복 (몬스터 회복 스킬용)
@@ -311,6 +319,7 @@
     async run() {
       for (const u of this.allies) {
         if (u.def.trait && u.def.trait.onBattleStart) u.def.trait.onBattleStart(this, u);
+        if (u.br.startShield) u.shield = Math.round(u.maxHp * u.br.startShield);
       }
       this.io.update();
 
@@ -384,7 +393,7 @@
 
     async useAttack(u) {
       this.log(`${u.name}의 일반 공격!`);
-      this.dealDamage(u, this.getTarget(), 1.0);
+      this.dealDamage(u, this.getTarget(), 1.0 * u.br.attackMult);
       this.gainEnergy(u, MR.CONFIG.ENERGY.attack);
       this.io.update();
       if (this.checkEnd()) return;
@@ -414,7 +423,9 @@
       });
       if (this.over) return;
       this.log(`${u.name}의 고유 스킬 「${sk.name}」${ok ? ' (보너스 발동!)' : ''}`);
+      this.powerUnit = u;
       sk.run(this, u, ok);
+      this.powerUnit = null;
       this.gainEnergy(u, MR.CONFIG.ENERGY.skill);
       this.io.update();
       this.checkEnd();
@@ -430,7 +441,7 @@
       this.io.update();
       if (this.checkEnd()) return;
 
-      const refund = Math.round(spent * ult.refund);
+      const refund = Math.round(spent * (ult.refund + u.br.refundBonus));
       const ok = await this.askQuiz(u, {
         kind: u.def.quiz,
         title: `${u.name} · 에너지 회수 퀴즈`,

@@ -35,7 +35,7 @@
       boss: true,
       color: '#1f8a9e',
       fixedStats: true,
-      base: { hp: 12500, atk: 1000, def: 150, spd: 98 },
+      base: { hp: 9000, atk: 750, def: 120, spd: 98 },
       skills: {
         mark: { name: '허수 표식', desc: '모든 아군에게 허수 표식 (다음 퀴즈를 틀리면 1턴 침묵)' },
         seal: { name: '허수 봉인', desc: '플레이어가 고른 아군 1명에게 2턴 침묵. 자료와 통계 퀴즈를 맞히면 1턴' },
