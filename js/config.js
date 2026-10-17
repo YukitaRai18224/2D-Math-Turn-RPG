@@ -17,7 +17,7 @@
     DEF_K: 300,
 
     // 레벨업
-    MAX_LEVEL: 20,
+    MAX_LEVEL: 40,
     GROWTH: { hp: 0.08, atk: 0.08, def: 0.06 }, // 레벨당 기본 스탯 대비 증가율
     LEVEL_UNLOCK_STAGE: '1-2',
     levelUpCost(level) {
@@ -48,8 +48,8 @@
     DELAY: { enemyAction: 650, afterAction: 350, quizCorrect: 1000, quizWrong: 1900, skillBanner: 1100 },
   };
 
-  // 캐릭터 레벨에 따른 스킬 레벨: Lv1 → 1, Lv7 → 2, Lv13 → 3, Lv19 → 4
-  MR.CONFIG.SKILL_LEVEL_AT = [1, 7, 13, 19];
+  // 캐릭터 레벨에 따른 스킬 레벨: Lv1 → 1, Lv10 → 2, Lv25 → 3, Lv35 → 4
+  MR.CONFIG.SKILL_LEVEL_AT = [1, 10, 25, 35];
   MR.skillLevelFor = function (charLevel) {
     return MR.CONFIG.SKILL_LEVEL_AT.filter((lv) => charLevel >= lv).length;
   };
