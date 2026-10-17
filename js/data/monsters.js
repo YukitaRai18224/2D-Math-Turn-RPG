@@ -25,6 +25,22 @@
       },
     },
 
+    // 챕터 3 잡몹. 빠르고 약하지만, 맞은 아군의 공격력을 떨어뜨리고 치명타가 잘 터진다.
+    ghost: {
+      name: '악령',
+      desc: '무작위 아군 1명에게 공격력 100% 피해 + 공격력 -15% (2턴). 빠르고 치명타 확률이 높다',
+      look: 'ghost',
+      base: { hp: 420, atk: 118, def: 18, spd: 115 },
+      crit: { rate: 0.15, dmg: 1.6 },
+      act(b, self) {
+        const [t] = b.randomAllies(1);
+        if (!t) return;
+        b.log(`${self.name}의 원한의 손길!`);
+        b.dealDamage(self, t, 1.0);
+        b.addBuff(t, { id: 'ghost_curse', stat: 'atk', pct: -0.15, turns: 2, label: '공격력' });
+      },
+    },
+
     // 1-12 보스. 허수(i)를 다루는 마녀.
     rafa: {
       name: '허수의 대마녀 라파',

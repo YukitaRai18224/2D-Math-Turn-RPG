@@ -4,6 +4,7 @@
   const S = 'slime';
   const A = 'armorSlime';
 
+  const G = 'ghost';
   const R = 'rafa';
   const V = 'vigenere';
 
@@ -44,25 +45,25 @@
     { id: '2-15', level: 17, enemies: [A, S, A, S], reward: 14 },
     { id: '2-16', level: 17, enemies: [A, A, S, A], reward: 16 },
 
-    { id: '3-1', level: 19, enemies: [S, S, S], reward: 15 },
-    { id: '3-2', level: 20, enemies: [A, S, A], reward: 15 },
-    { id: '3-3', level: 20, enemies: [S, S, S, S], reward: 16 },
-    { id: '3-4', level: 21, enemies: [A, A, S], reward: 16 },
-    { id: '3-5', level: 22, enemies: [S, A, S, A], reward: 17 },
-    { id: '3-6', level: 22, enemies: [A, S, A], reward: 17 },
-    { id: '3-7', level: 23, enemies: [S, S, A, S], reward: 18 },
-    { id: '3-8', level: 24, enemies: [A, S, A, S], reward: 18 },
-    { id: '3-9', level: 24, enemies: [S, S, S, S], reward: 19 },
-    { id: '3-10', level: 25, enemies: [A, A, S, S], reward: 20 },
-    { id: '3-11', level: 26, enemies: [A, S, A], reward: 20 },
-    { id: '3-12', level: 26, enemies: [A, A, S, S], reward: 21 },
-    { id: '3-13', level: 27, enemies: [S, A, S, A], reward: 22 },
-    { id: '3-14', level: 28, enemies: [A, S, A, S], reward: 22 },
-    { id: '3-15', level: 28, enemies: [S, S, A, A], reward: 23 },
-    { id: '3-16', level: 29, enemies: [A, S, A, S], reward: 24 },
-    { id: '3-17', level: 30, enemies: [A, S, S, A], reward: 25 },
-    { id: '3-18', level: 31, enemies: [A, A, S, S], reward: 26 },
-    { id: '3-19', level: 32, enemies: [A, S, A, S], reward: 28 },
-    { id: '3-20', level: 32, enemies: [S, V, S], reward: 50, boss: true },
+    { id: '3-1', level: 19, enemies: [G, S, G], reward: 15 },
+    { id: '3-2', level: 20, enemies: [A, G, A], reward: 15 },
+    { id: '3-3', level: 20, enemies: [S, G, S, G], reward: 16 },
+    { id: '3-4', level: 21, enemies: [A, A, G], reward: 16 },
+    { id: '3-5', level: 22, enemies: [G, A, G, A], reward: 17 },
+    { id: '3-6', level: 22, enemies: [A, G, A], reward: 17 },
+    { id: '3-7', level: 23, enemies: [G, S, A, G], reward: 18 },
+    { id: '3-8', level: 24, enemies: [A, G, A, S], reward: 18 },
+    { id: '3-9', level: 24, enemies: [G, G, G, G], reward: 19 },
+    { id: '3-10', level: 25, enemies: [A, A, G, S], reward: 20 },
+    { id: '3-11', level: 26, enemies: [A, G, A], reward: 20 },
+    { id: '3-12', level: 26, enemies: [A, G, S, A], reward: 21 },
+    { id: '3-13', level: 27, enemies: [G, A, G, A], reward: 22 },
+    { id: '3-14', level: 28, enemies: [A, G, A, G], reward: 22 },
+    { id: '3-15', level: 28, enemies: [G, S, A, A], reward: 23 },
+    { id: '3-16', level: 29, enemies: [A, G, A, G], reward: 24 },
+    { id: '3-17', level: 30, enemies: [A, G, G, A], reward: 25 },
+    { id: '3-18', level: 31, enemies: [A, A, G, G], reward: 26 },
+    { id: '3-19', level: 32, enemies: [A, G, A, G], reward: 28 },
+    { id: '3-20', level: 32, enemies: [G, V, G], reward: 50, boss: true },
   ];
 })((globalThis.MR = globalThis.MR || {}));

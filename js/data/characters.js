@@ -20,6 +20,7 @@
       color: '#e0464b',
       image: 'assets/characters/kagari.png',
       base: { hp: 1000, atk: 120, def: 50, spd: 105 },
+      crit: { rate: 0.15, dmg: 1.7 }, // 치명타 확률, 치명타 피해 배율
       maxEnergy: 120,
       quiz: 'multiply',
       skill: {
@@ -57,6 +58,7 @@
       color: '#3a6fd8',
       image: 'assets/characters/aquamarine.png',
       base: { hp: 950, atk: 100, def: 45, spd: 100 },
+      crit: { rate: 0.08, dmg: 1.5 }, // 치명타 확률, 치명타 피해 배율
       maxEnergy: 120,
       quiz: 'fraction',
       skill: {
@@ -100,6 +102,7 @@
       color: '#3f9b4c',
       image: 'assets/characters/pricia.png',
       base: { hp: 1100, atk: 90, def: 55, spd: 95 },
+      crit: { rate: 0.05, dmg: 1.5 }, // 치명타 확률, 치명타 피해 배율
       maxEnergy: 100,
       quiz: 'division',
       skill: {
@@ -141,6 +144,7 @@
       color: '#e0a21b',
       image: 'assets/characters/hina.png',
       base: { hp: 1000, atk: 95, def: 50, spd: 110 },
+      crit: { rate: 0.05, dmg: 1.5 }, // 치명타 확률, 치명타 피해 배율
       maxEnergy: 100,
       quiz: 'geometry',
       skill: {
@@ -188,6 +192,7 @@
       image: 'assets/characters/rafa.png',
       unlockStage: '1-12',
       base: { hp: 1050, atk: 80, def: 45, spd: 95 },
+      crit: { rate: 0.1, dmg: 1.6 }, // 치명타 확률, 치명타 피해 배율
       maxEnergy: 120,
       quiz: 'stats',
       // 허수 표식: 표식이 있는 적이 최대 체력 10%를 넘는 피해를 받으면 터진다

@@ -27,7 +27,7 @@
     const hp = Math.round((s.hp + e.hp) * br.statMult);
     return {
       uid: `a_${key}`, key, side: 'ally', def, name: def.name, level, skillLevel: MR.skillLevelFor(level), shield: 0,
-      breakLevel: breakLevel || 0, br,
+      breakLevel: breakLevel || 0, br, critRate: def.crit.rate, critDmg: def.crit.dmg,
       maxHp: hp, hp, baseAtk: Math.round((s.atk + e.atk) * br.statMult), baseDef: Math.round((s.def + e.def) * br.statMult), spd: s.spd + e.spd,
       maxEnergy: def.maxEnergy, energy: Math.min(def.maxEnergy, Math.round(def.maxEnergy * MR.CONFIG.ENERGY.start) + br.startEnergy),
       buffs: [], alive: true,
@@ -45,6 +45,7 @@
       level: stageLevel,
       maxHp: hp, hp, baseAtk: Math.round(def.base.atk * m), baseDef: Math.round(def.base.def * m), spd: def.base.spd,
       buffs: [], alive: true, boss: !!def.boss,
+      critRate: (def.crit || MR.CONFIG.ENEMY_CRIT).rate, critDmg: (def.crit || MR.CONFIG.ENEMY_CRIT).dmg,
       mem: {}, // 몬스터가 전투 중 기억할 값 (행동 패턴, 재사용 대기 등)
     };
   }
@@ -155,7 +156,10 @@
       const trait = src.def.trait;
       const bonus = trait && trait.damageBonus ? trait.damageBonus(this, src, target, ctx) : 0;
       const power = this.powerUnit === src ? src.br.skillPower : 1;
-      const dmg = this.applyHit(target, this.stat(src, 'atk') * mult * (1 + bonus) * power);
+      // 치명타: 공격자의 치명타 확률로 판정, 터지면 치명타 피해 배율만큼 곱한다
+      const crit = Math.random() < (src.critRate || 0);
+      const critMult = crit ? src.critDmg : 1;
+      const dmg = this.applyHit(target, this.stat(src, 'atk') * mult * (1 + bonus) * power * critMult, crit ? 'crit' : 'damage');
       if (target.side === 'ally') this.gainEnergy(target, MR.CONFIG.ENERGY.hit);
       if (target.alive) this.checkImagMark(src, target, dmg);
       return dmg;

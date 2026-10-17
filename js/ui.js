@@ -19,7 +19,26 @@
 
   function monsterSvg(def) {
     if (def.image) return `<img class="slime-svg monster-img" src="${def.image}" alt="">`;
+    if (def.look === 'ghost') return ghostSvg();
     return def.look === 'witch' ? witchSvg(def.palette) : slimeSvg(def.look);
+  }
+
+  // 악령: 흐릿하게 떠다니는 보랏빛 유령
+  function ghostSvg() {
+    return `
+      <svg viewBox="0 0 120 100" class="slime-svg ghost-svg" aria-hidden="true">
+        <ellipse cx="60" cy="94" rx="30" ry="4" fill="rgba(60,20,90,.15)"/>
+        <g class="ghost-body">
+          <path d="M28 82 C24 40 40 12 60 12 C80 12 96 40 92 82 L84 74 L76 84 L68 74 L60 86 L52 74 L44 84 L36 74 Z" fill="#e9e2f7" stroke="#b9a6dc" stroke-width="2"/>
+          <path d="M34 46 C34 30 46 20 60 20" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" opacity=".7"/>
+          <ellipse cx="48" cy="46" rx="6" ry="9" fill="#3b2557"/>
+          <ellipse cx="72" cy="46" rx="6" ry="9" fill="#3b2557"/>
+          <circle cx="50" cy="43" r="2" fill="#c9a6ff"/><circle cx="74" cy="43" r="2" fill="#c9a6ff"/>
+          <path d="M50 64 Q55 58 60 64 Q65 70 70 64" stroke="#3b2557" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M26 60 Q14 56 12 44" stroke="#b9a6dc" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <path d="M94 60 Q106 56 108 44" stroke="#b9a6dc" stroke-width="5" fill="none" stroke-linecap="round"/>
+        </g>
+      </svg>`;
   }
 
   // 마녀 색 구성: 기본(비즈네르, 보라·암호 문자) / imaginary(라파, 청록·허수 i)
@@ -235,6 +254,7 @@
             <table class="stats">
               ${row('최대 체력', 'hp')}${row('공격력', 'atk')}${row('방어력', 'def')}
               <tr><th>속도</th><td>${now.spd}</td><td></td>${eqCell('spd')}</tr>
+              <tr><th>치명타</th><td colspan="3">${Math.round(c.crit.rate * 100)}% · 피해 ${Math.round(c.crit.dmg * 100)}%</td></tr>
             </table>
             ${equipOn ? '<p class="equip-note">파란 숫자는 장비로 오른 능력치예요.</p>' : ''}
             ${btn}
@@ -620,14 +640,14 @@
     const r = el.getBoundingClientRect();
     const n = document.createElement('span');
     n.className = `fx-num ${type}`;
-    n.textContent = type === 'heal' ? `+${amount}` : type === 'burst' ? `ⅰ -${amount}` : `-${amount}`;
+    n.textContent = type === 'heal' ? `+${amount}` : type === 'burst' ? `ⅰ -${amount}` : type === 'crit' ? `치명! -${amount}` : `-${amount}`;
     n.style.left = `${r.left + r.width / 2 + (Math.random() * 30 - 15)}px`;
     n.style.top = `${r.top + r.height * 0.3}px`;
     document.getElementById('fx-layer').appendChild(n);
     setTimeout(() => n.remove(), 1000);
-    el.classList.remove('hit', 'healed');
+    el.classList.remove('hit', 'healed', 'crit-hit');
     void el.offsetWidth;
-    el.classList.add(type === 'heal' ? 'healed' : 'hit');
+    el.classList.add(type === 'heal' ? 'healed' : type === 'crit' ? 'crit-hit' : 'hit');
   }
 
   // ---------- 퀴즈 창 ----------

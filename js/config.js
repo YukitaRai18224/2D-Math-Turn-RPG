@@ -41,6 +41,9 @@
     REPEAT_REWARD_PENALTY: 4,
     REPEAT_REWARD_MIN: 1,
 
+    // 치명타: 따로 정하지 않은 몬스터의 기본값 (캐릭터는 characters.js 의 crit)
+    ENEMY_CRIT: { rate: 0.05, dmg: 1.5 },
+
     // 몬스터 스탯 = 기본 스탯 × (1 + ENEMY_SCALE × (스테이지 레벨 - 1))
     ENEMY_SCALE: 0.35,
 
