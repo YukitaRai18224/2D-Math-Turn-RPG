@@ -131,6 +131,115 @@
       .join('');
   }
 
+  // ---------- 시작 화면 · 로그인 ----------
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+  function showStart(message) {
+    battle = null;
+    closeModal();
+    const accounts = MR.Auth.list().sort((a, b) => b.lastPlayed - a.lastPlayed);
+    const lastId = MR.Auth.lastProfileId();
+    const cards = accounts.map((a) => {
+      const sm = MR.Auth.summary(a.id);
+      return `
+        <div class="profile-card ${a.id === lastId ? 'last' : ''}">
+          <button class="profile-main" data-act="profile-login" data-id="${a.id}">
+            <span class="profile-avatar">${esc(a.name.slice(0, 1))}</span>
+            <span class="profile-text">
+              <b>${esc(a.name)} ${a.pin ? '<i class="lock" title="PIN 잠금">🔒</i>' : ''}</b>
+              <small>${sm.last ? `${sm.last}까지 클리어` : '새 모험'} · 최고 Lv.${sm.maxLevel}</small>
+            </span>
+            <span class="profile-go">${a.id === lastId ? 'CONTINUE ▶' : 'START ▶'}</span>
+          </button>
+          <button class="profile-del" data-act="profile-delete" data-id="${a.id}" title="계정 삭제" aria-label="${esc(a.name)} 계정 삭제">✕</button>
+        </div>`;
+    }).join('');
+
+    app().innerHTML = `
+      <div class="start-screen">
+        <div class="start-bg" aria-hidden="true"><div class="start-sun"></div><div class="start-grid"></div></div>
+        <div class="start-inner">
+          <header class="start-logo">
+            <p class="start-kicker">// EDU-COMBAT SYSTEM v2.0</p>
+            <h1 class="glitch" data-text="The ZERO">The ZERO</h1>
+            <p class="start-sub">수학 턴제 RPG · 문제를 풀어 싸워라</p>
+          </header>
+          <div class="start-cast" aria-hidden="true">
+            ${MR.CHARACTER_ORDER.map((k, i) => `<img src="${MR.CHARACTERS[k].image}" alt="" style="--c:${MR.CHARACTERS[k].color};--i:${i}">`).join('')}
+          </div>
+          <section class="login-panel">
+            <h2><span>&gt;_</span> LOGIN</h2>
+            ${message ? `<p class="login-msg">${message}</p>` : ''}
+            ${accounts.length ? `<div class="profile-list">${cards}</div>` : '<p class="login-empty">아직 계정이 없어요. 아래에서 닉네임을 정해 시작하세요.</p>'}
+            ${MR.Auth.hasLegacySave() ? '<p class="login-legacy">💾 이 기기에 로그인 기능 이전의 진행 기록이 있어요. 새로 만드는 계정이 그 기록을 이어받아요.</p>' : ''}
+            <form class="new-profile" data-form="create" autocomplete="off">
+              <h3>NEW ACCOUNT</h3>
+              <label><span>닉네임</span><input name="name" maxlength="${MR.Auth.NAME_MAX}" placeholder="최대 ${MR.Auth.NAME_MAX}자" autocomplete="off"></label>
+              <label><span>PIN <small>(선택 · 숫자 4자리)</small></span><input name="pin" inputmode="numeric" maxlength="4" type="password" placeholder="비워 두면 잠금 없음" autocomplete="off"></label>
+              <button class="btn primary" type="submit">계정 만들고 시작 ▶</button>
+              <p class="form-error" aria-live="polite"></p>
+            </form>
+            <p class="login-note">계정과 진행 상황은 <b>이 기기의 브라우저</b>에만 저장돼요. 다른 기기로는 이어지지 않고, PIN 은 다른 사람이 실수로 내 계정을 여는 것을 막는 간단한 잠금이에요.</p>
+          </section>
+        </div>
+      </div>`;
+  }
+
+  // PIN 입력 창 (로그인 / 삭제 확인)
+  function askPin(title, desc, onSubmit) {
+    modal().innerHTML = `
+      <div class="overlay">
+        <form class="pin-card" data-form="pin" autocomplete="off">
+          <div class="quiz-title">${title}</div>
+          <p class="choose-desc">${desc}</p>
+          <input name="pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••" aria-label="PIN" autocomplete="off">
+          <p class="form-error" aria-live="polite"></p>
+          <div class="result-buttons">
+            <button class="btn primary" type="submit">확인</button>
+            <button class="btn" type="button" data-act="pin-cancel">취소</button>
+          </div>
+        </form>
+      </div>`;
+    const form = modal().querySelector('form');
+    form._onPin = onSubmit;
+    setTimeout(() => form.elements.pin.focus(), 30);
+  }
+
+  function enterGame(id) {
+    if (!MR.Auth.login(id)) return;
+    selectedChapter = null;
+    showMap();
+  }
+
+  document.addEventListener('submit', (ev) => {
+    const form = ev.target.closest('[data-form]');
+    if (!form) return;
+    ev.preventDefault();
+    const err = form.querySelector('.form-error');
+    if (form.dataset.form === 'create') {
+      const r = MR.Auth.create(form.elements.name.value, form.elements.pin.value);
+      if (!r.ok) {
+        err.textContent = r.error;
+        form.classList.remove('shake');
+        void form.offsetWidth;
+        form.classList.add('shake');
+        return;
+      }
+      MR.Auth.login(r.account.id, form.elements.pin.value);
+      selectedChapter = null;
+      showMap();
+    } else if (form.dataset.form === 'pin') {
+      const ok = form._onPin(form.elements.pin.value);
+      if (!ok) {
+        err.textContent = 'PIN 이 맞지 않아요.';
+        form.elements.pin.value = '';
+        form.classList.remove('shake');
+        void form.offsetWidth;
+        form.classList.add('shake');
+      }
+    }
+  });
+
   // ---------- 스테이지 선택 ----------
   function showMap() {
     battle = null;
@@ -162,7 +271,9 @@
     app().innerHTML = `
       <div class="screen map">
         <header class="topbar">
-          <h1>수학 턴제 RPG</h1>
+          <h1 class="brand">The <span>ZERO</span> <small>수학 턴제 RPG</small></h1>
+          <div class="profile-chip" title="로그인한 계정">◉ ${esc(MR.Auth.current ? MR.Auth.current.name : '')}
+            <button class="link-btn" data-act="logout">로그아웃</button></div>
           <div class="potions" title="경험치 물약">🧪 경험치 물약 <b>${s.potions}</b></div>
           ${P().isEquipUnlocked() ? `<div class="potions" title="강화석">💎 강화석 <b>${s.stones}</b></div>` : ''}
           ${gemBadges(s.gems)}
@@ -213,7 +324,7 @@
           <div class="stage-grid">${stages}</div>
         </section>
         <footer class="map-foot">
-          <button class="link-btn" data-act="reset">진행 상황 초기화</button>
+          <button class="link-btn" data-act="reset">이 계정의 진행 상황 초기화</button>
         </footer>
       </div>`;
   }
@@ -837,8 +948,45 @@
       case 'map':
         showMap();
         break;
+      case 'profile-login': {
+        const id = el.dataset.id;
+        const acc = MR.Auth.find(id);
+        if (!acc) break;
+        if (!MR.Auth.needsPin(id)) enterGame(id);
+        else askPin(`「${esc(acc.name)}」 로그인`, 'PIN 4자리를 입력하세요.', (pin) => {
+          if (!MR.Auth.login(id, pin)) return false;
+          selectedChapter = null;
+          showMap();
+          return true;
+        });
+        break;
+      }
+      case 'profile-delete': {
+        const id = el.dataset.id;
+        const acc = MR.Auth.find(id);
+        if (!acc) break;
+        if (MR.Auth.needsPin(id)) {
+          askPin(`「${esc(acc.name)}」 계정 삭제`, '삭제하면 이 계정의 진행 상황이 모두 사라져요. PIN 을 입력하면 삭제해요.', (pin) => {
+            if (!MR.Auth.remove(id, pin)) return false;
+            showStart(`「${esc(acc.name)}」 계정을 삭제했어요.`);
+            return true;
+          });
+        } else if (confirm(`「${acc.name}」 계정을 삭제할까요? 이 계정의 진행 상황이 모두 사라져요.`)) {
+          MR.Auth.remove(id);
+          showStart(`「${esc(acc.name)}」 계정을 삭제했어요.`);
+        }
+        break;
+      }
+      case 'pin-cancel':
+        closeModal();
+        break;
+      case 'logout':
+        if (battle) battle.abort();
+        MR.Auth.logout();
+        showStart();
+        break;
       case 'reset':
-        if (confirm('모든 진행 상황(클리어 기록, 물약, 레벨)을 지울까요?')) {
+        if (confirm(`「${MR.Auth.current ? MR.Auth.current.name : ''}」 계정의 모든 진행 상황(클리어 기록, 물약, 레벨, 보석)을 지울까요?`)) {
           P().reset();
           showMap();
         }
@@ -922,8 +1070,7 @@
 
   MR.UI = {
     start() {
-      P().load();
-      showMap();
+      showStart();
     },
     // 개발용: 브라우저 콘솔에서 MR.UI.battle() 로 현재 전투 상태를 볼 수 있다
     battle: () => battle,

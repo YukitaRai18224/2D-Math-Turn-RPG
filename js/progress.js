@@ -1,7 +1,8 @@
 // 진행 상황 저장 (브라우저 localStorage): 클리어한 스테이지, 경험치 물약, 캐릭터 레벨, 장비 강화, 강화석, 출전 파티,
 // 보유 캐릭터, 돌파 단계와 재료, 보석(루비·사파이어·에메랄드)
 (function (MR) {
-  const KEY = 'mathrpg.save.v1';
+  // 저장 위치: 로그인한 계정마다 다르다 (MR.Auth.saveKey). 로그인 전에는 예전 기본 위치
+  let KEY = 'mathrpg.save.v1';
 
   function defaults() {
     const levels = {};
@@ -24,6 +25,12 @@
     state: defaults(),
     backfillNotice: 0, // 이번 접속에서 지급한 소급 강화석 (화면 안내용)
     gemBackfillNotice: null, // 이번 접속에서 지급한 소급 보석
+
+    // 계정을 바꾸면 그 계정의 저장 데이터를 불러온다
+    useProfile(key) {
+      KEY = key;
+      this.load();
+    },
 
     load() {
       let saved = null;
