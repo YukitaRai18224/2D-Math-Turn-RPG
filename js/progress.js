@@ -58,6 +58,11 @@
         this.state.limits[k] = Math.max(this.state.limits[k] || 0, passed);
       }
       this.state.gems = { ...d.gems, ...((saved && saved.gems) || {}) };
+      // 본 튜토리얼. 튜토리얼 기능 전에 이미 플레이한 기록은 기본 안내(첫 화면·전투·퀴즈)를 건너뛴다
+      this.state.tutorial = { ...((saved && saved.tutorial) || {}) };
+      if (saved && !saved.tutorial && Object.keys(saved.cleared || {}).length) {
+        Object.assign(this.state.tutorial, { map: true, battle: true, quiz: true });
+      }
       const savedEquip = (saved && saved.equip) || {};
       for (const k of MR.CHARACTER_ORDER) this.state.equip[k] = { ...d.equip[k], ...(savedEquip[k] || {}) };
       // 출전 파티: 저장된 값 중 열린 캐릭터만, 중복 없이

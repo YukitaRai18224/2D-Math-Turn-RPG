@@ -324,9 +324,11 @@
           <div class="stage-grid">${stages}</div>
         </section>
         <footer class="map-foot">
+          <button class="link-btn" data-act="tutorial-reset">📘 튜토리얼 다시 보기</button>
           <button class="link-btn" data-act="reset">이 계정의 진행 상황 초기화</button>
         </footer>
       </div>`;
+    MR.Tutorial.maybe('map');
   }
 
   // ---------- 파티 · 레벨업 ----------
@@ -413,6 +415,11 @@
           레벨 ${MR.CONFIG.LIMIT_BREAKS.map((lb) => `${lb.at}→${lb.at + 1}`).join(', ')}은 경험치 물약과 에메랄드로 <b>한계 돌파</b>를 해야 올라가요.</p>
         <div class="char-grid">${cards}</div>
       </div>`;
+    if (unlocked) {
+      MR.Tutorial.maybe('levelup').then(() => {
+        if (roster.length > MR.PARTY_SIZE && document.querySelector('.party-toggle')) MR.Tutorial.maybe('party');
+      });
+    }
   }
 
   // ---------- 캐릭터 뽑기 ----------
@@ -451,6 +458,7 @@
         ${results ? `<section class="pull-results">${resultCards}</section>
           <p class="center"><button class="btn" data-act="party">파티 · 돌파 하러 가기</button></p>` : ''}
       </div>`;
+    MR.Tutorial.maybe('gacha');
   }
 
   // ---------- 장비 강화 ----------
@@ -518,6 +526,7 @@
         </div>
         <p class="equip-note">강화는 실패하지 않아요. 최대 +${MR.CONFIG.MAX_ENHANCE}까지 강화할 수 있어요.</p>
       </div>`;
+    if (unlocked) MR.Tutorial.maybe('equip');
   }
 
   // ---------- 전투 ----------
@@ -642,6 +651,7 @@
 
     const bar$ = document.getElementById('action-bar');
     if (waiting && b.current.side === 'ally') {
+      setTimeout(() => MR.Tutorial.maybe('battle'), 0);
       const u = b.current;
       const sk = u.def.skill;
       bar$.innerHTML = `
@@ -809,6 +819,7 @@
       // 터치 화면에서는 입력칸에 바로 초점을 주면 키보드가 연습장을 가리므로, 마우스 환경에서만 자동 초점
       const finePointer = !window.matchMedia || window.matchMedia('(pointer: fine)').matches;
       if (finePointer) setTimeout(() => input.focus(), 30);
+      MR.Tutorial.maybe('quiz').then(() => finePointer && input.focus());
 
       // 연습장 (열어 둔 상태는 다음 퀴즈에도 유지)
       const padEl = modal().querySelector('.quiz-pad');
@@ -977,6 +988,10 @@
         }
         break;
       }
+      case 'tutorial-reset':
+        MR.Tutorial.reset();
+        showMap();
+        break;
       case 'pin-cancel':
         closeModal();
         break;

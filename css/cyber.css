@@ -307,3 +307,24 @@ h1, h2, h3, .stage-id, .round, .stage-title, .chapter-tab, .quiz-title, .result-
 @media (prefers-reduced-motion: reduce) {
   .start-grid, .glitch::before, .glitch::after, .start-cast img { animation: none; }
 }
+
+/* ---------- 튜토리얼 ---------- */
+#tutorial-layer { display: none; position: fixed; inset: 0; z-index: 300; }
+#tutorial-layer.on { display: block; }
+.tut-block { position: absolute; inset: 0; }
+.tut-box {
+  position: fixed; border: 2px solid var(--accent); box-shadow: 0 0 0 9999px rgba(3, 2, 10, 0.72), var(--glow-cyan);
+  pointer-events: none; transition: all 0.25s ease;
+}
+.tut-card {
+  position: fixed; z-index: 1; background: var(--panel-2); border: 1px solid var(--accent); color: var(--ink);
+  padding: 14px 16px 12px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7), var(--glow-cyan);
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  width: min(340px, calc(100vw - 24px)); transition: top 0.25s ease, left 0.25s ease;
+}
+.tut-step { font-family: var(--font-display); font-size: 11px; color: var(--accent-2); letter-spacing: 0.15em; }
+.tut-title { display: block; font-size: 17px; margin: 4px 0 6px; color: #fff; }
+.tut-card p { margin: 0 0 12px; font-size: 14px; line-height: 1.6; color: #d3dcff; }
+.tut-buttons { display: flex; align-items: center; gap: 8px; }
+.tut-buttons .link-btn { margin-right: auto; }
+.tut-buttons .btn { padding: 7px 12px; font-size: 14px; }
