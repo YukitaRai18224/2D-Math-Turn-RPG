@@ -101,6 +101,21 @@
   function gemBadges(gems, cls = 'potions') {
     return MR.GEMS.map((g) => `<div class="${cls} gem-count" title="${g.name}">${gemIcon(g.id)} ${g.name} <b>${gems[g.id] || 0}</b></div>`).join('');
   }
+  // 장비 등급 배지
+  const gradeBadge = (g) => {
+    const gr = MR.GEAR_GRADES[g || 0];
+    return `<span class="grade-badge grade-${gr.id}" style="--g:${gr.color}" title="${gr.ko}">${gr.name}</span>`;
+  };
+  // 등급 효과 설명 (slotId 가 없으면 무기 기준)
+  const gradeBonusText = (g, slotId = 'weapon') => {
+    const gr = MR.GEAR_GRADES[g || 0];
+    if (slotId !== 'weapon') return `${slotId === 'shoes' ? '속도' : '능력치'} ×${MR.gradeMult(slotId, g)}`;
+    const parts = [`능력치 ×${gr.mult}`];
+    if (gr.crit) parts.push(`치명타 확률 +${Math.round(gr.crit * 100)}%`);
+    if (gr.critDmg) parts.push(`치명타 피해 +${Math.round(gr.critDmg * 100)}%`);
+    return parts.join(' · ');
+  };
+  const gearGrades = (k) => P().state.gearGrade[k] || {};
   const stars = (n) => `<span class="stars" title="${n}돌파">${'★'.repeat(n)}${'☆'.repeat(MR.BREAKTHROUGH.max - n)}</span>`;
 
   // 레벨업으로 고유 스킬·궁극기 레벨이 올랐으면 안내 문구
@@ -135,6 +150,7 @@
   const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
   function showStart(message) {
+    MR.Tutorial.cancel();
     battle = null;
     closeModal();
     const accounts = MR.Auth.list().sort((a, b) => b.lastPlayed - a.lastPlayed);
@@ -340,7 +356,7 @@
     const cards = roster.map((k) => {
       const c = MR.CHARACTERS[k];
       const lv = P().level(k);
-      const eq = MR.equipBonus(P().state.equip[k]);
+      const eq = MR.equipBonus(P().state.equip[k], gearGrades(k));
       const eqCell = (key) => (equipOn ? `<td class="equip">${eq[key] ? `+${eq[key]}` : ''}</td>` : '');
       const now = MR.statsAtLevel(c.base, lv);
       const cost = P().levelUpCost(k);
@@ -382,7 +398,7 @@
             <table class="stats">
               ${row('최대 체력', 'hp')}${row('공격력', 'atk')}${row('방어력', 'def')}
               <tr><th>속도</th><td>${now.spd}</td><td></td>${eqCell('spd')}</tr>
-              <tr><th>치명타</th><td colspan="3">${Math.round(c.crit.rate * 100)}% · 피해 ${Math.round(c.crit.dmg * 100)}%</td></tr>
+              <tr><th>치명타</th><td colspan="3">${Math.round((c.crit.rate + (equipOn ? eq.crit : 0)) * 100)}% · 피해 ${Math.round((c.crit.dmg + (equipOn ? eq.critDmg : 0)) * 100)}%</td></tr>
             </table>
             ${equipOn ? '<p class="equip-note">파란 숫자는 장비로 오른 능력치예요.</p>' : ''}
             ${btn}
@@ -469,32 +485,36 @@
     const c = MR.CHARACTERS[k];
     const lv = P().level(k);
     const base = MR.statsAtLevel(c.base, lv);
-    const eq = MR.equipBonus(P().state.equip[k]);
+    const eq = MR.equipBonus(P().state.equip[k], gearGrades(k));
 
     const tabs = P().roster().map((key) => {
       const ch = MR.CHARACTERS[key];
       const total = MR.EQUIP_SLOTS.reduce((sum, sl) => sum + P().enhanceLevel(key, sl.id), 0);
       return `
         <button class="equip-tab ${key === k ? 'on' : ''}" data-act="equip-char" data-key="${key}" style="--c:${ch.color}">
-          <img src="${ch.image}" alt=""><span>${ch.name}<small>강화 합계 +${total}</small></span>
+          <img src="${ch.image}" alt=""><span>${ch.name}<small>무기 ${MR.GEAR_GRADES[P().weaponGrade(key)].name} · 강화 합계 +${total}</small></span>
         </button>`;
     }).join('');
 
     const slots = MR.EQUIP_SLOTS.map((sl) => {
       const elv = P().enhanceLevel(k, sl.id);
       const cost = P().enhanceCost(k, sl.id);
-      const now = MR.equipValue(sl, elv);
-      const next = cost !== null ? MR.equipValue(sl, elv + 1) : null;
+      const isWeapon = sl.id === 'weapon';
+      const g = P().gearGrade(k, sl.id);
+      const gr = MR.GEAR_GRADES[g];
+      const now = MR.equipValue(sl, elv, g);
+      const next = cost !== null ? MR.equipValue(sl, elv + 1, g) : null;
       let btn;
       if (!unlocked) btn = `<button class="btn" disabled>🔒</button>`;
       else if (cost === null) btn = `<button class="btn" disabled>최대 강화</button>`;
       else btn = `<button class="btn primary" data-act="enhance" data-slot="${sl.id}" ${P().canEnhance(k, sl.id) ? '' : 'disabled'}>강화 (💎 ${cost})</button>`;
       const pct = (elv / MR.CONFIG.MAX_ENHANCE) * 100;
       return `
-        <div class="equip-slot ${flash === sl.id ? 'flash' : ''} ${elv >= MR.CONFIG.MAX_ENHANCE ? 'maxed' : ''}">
+        <div class="equip-slot ${flash === sl.id ? 'flash' : ''} ${elv >= MR.CONFIG.MAX_ENHANCE ? 'maxed' : ''} graded-slot grade-${gr.id}" style="--g:${gr.color}">
           <div class="equip-icon">${sl.icon}</div>
           <div class="equip-info">
-            <div class="equip-name"><small>${sl.name}</small> ${MR.EQUIP_NAMES[k][sl.id]} <b class="plus">+${elv}</b></div>
+            <div class="equip-name"><small>${sl.name}</small> ${gradeBadge(g)} ${MR.EQUIP_NAMES[k][sl.id]} <b class="plus">+${elv}</b></div>
+            <div class="grade-note">${gradeBonusText(g, sl.id)}${!isWeapon && g >= MR.ARMOR_MAX_GRADE ? ' · 방어구 최고 등급' : ''}</div>
             <div class="equip-stat">${sl.statName} <b>+${now}</b>${next !== null ? ` <span class="next">→ +${next}</span>` : ''}</div>
             <div class="enh-bar"><i style="width:${pct}%"></i></div>
           </div>
@@ -525,6 +545,19 @@
           <div class="equip-slots">${slots}</div>
         </div>
         <p class="equip-note">강화는 실패하지 않아요. 최대 +${MR.CONFIG.MAX_ENHANCE}까지 강화할 수 있어요.</p>
+        <section class="grade-info">
+          <h3>장비 등급</h3>
+          <p class="equip-note">스테이지를 클리어할 때마다 동료 중 무작위 캐릭터의 <b>무기 1개</b>와 <b>방어구 1개</b>(모자·상의·하의·신발 중 무작위)를 무작위 등급으로 얻어요. 지금보다 좋은 등급이면 강화 단계를 그대로 유지한 채 바뀌고, 아니면 분해되어 강화석이 돼요. 방어구는 Epic 까지 있어요.</p>
+          <table class="grade-table">
+            <tr><th>등급</th>${MR.GEAR_GRADES.map((g, i) => `<td>${gradeBadge(i)}</td>`).join('')}</tr>
+            <tr><th>무기</th>${MR.GEAR_GRADES.map((g, i) => `<td>${gradeBonusText(i).replace(' · ', '<br>')}</td>`).join('')}</tr>
+            <tr><th>모자·상의·하의</th>${MR.GEAR_GRADES.map((g, i) => `<td>${i > MR.ARMOR_MAX_GRADE ? '—' : `능력치 ×${g.mult}`}</td>`).join('')}</tr>
+            <tr><th>신발</th>${MR.GEAR_GRADES.map((g, i) => `<td>${i > MR.ARMOR_MAX_GRADE ? '—' : `속도 ×${g.spdMult}`}</td>`).join('')}</tr>
+            <tr><th>분해 시</th>${MR.WEAPON_GRADES.map((g) => `<td>💎 ${g.salvage}</td>`).join('')}</tr>
+            ${Object.keys(MR.WEAPON_DROP).filter((ch) => MR.CHAPTERS.some((c) => c.id === Number(ch))).map((ch) => `<tr><th>챕터 ${ch}</th>${MR.WEAPON_DROP[ch].map((p) => `<td>${p}%</td>`).join('')}</tr>`).join('')}
+          </table>
+          <p class="equip-note">보스 스테이지는 다음 챕터의 확률로 나와요. 방어구에서 Legendary 가 나오면 Epic 으로 얻어요.</p>
+        </section>
       </div>`;
     if (unlocked) MR.Tutorial.maybe('equip');
   }
@@ -571,6 +604,7 @@
       equip: P().isEquipUnlocked() ? P().state.equip : null,
       party: P().state.party,
       breaks: P().state.breaks,
+      gearGrades: P().state.gearGrade,
     });
     const b = battle;
 
@@ -904,6 +938,16 @@
       body = `
         <p>경험치 물약 <b>🧪 +${r.reward}</b> (보유 ${P().state.potions})${r.firstClear ? '' : '<br><small class="repeat-note">반복 클리어 보상</small>'}</p>
         ${r.stones ? `<p>강화석 <b>💎 +${r.stones}</b> (보유 ${P().state.stones})</p>` : ''}
+        ${r.drops.map((d) => {
+          const slot = MR.EQUIP_SLOTS.find((x) => x.id === d.slot);
+          return `<div class="weapon-drop ${d.upgraded ? 'up' : ''}" style="--g:${MR.GEAR_GRADES[d.grade].color}">
+          <span class="weapon-icon">${slot.icon}</span>
+          <span><small>${slot.name} 획득</small><b>${gradeBadge(d.grade)} ${MR.EQUIP_NAMES[d.key][d.slot]}</b>
+            <small>${MR.CHARACTERS[d.key].name} · ${d.upgraded
+              ? `등급 상승! ${MR.GEAR_GRADES[d.before].name} → ${MR.GEAR_GRADES[d.grade].name} (자동 장착)`
+              : `이미 ${MR.GEAR_GRADES[d.before].name} 등급이 있어 분해했어요 · 💎 +${d.stones}`}</small></span>
+        </div>`;
+        }).join('')}
         ${r.gems ? `<p class="gem-reward">최초 클리어 보상 ${MR.GEMS.map((g) => `<span>${gemIcon(g.id)} ${g.name} <b>+${r.gems[g.id]}</b></span>`).join('')}</p>` : ''}
         ${r.joinCopies.map((k) => `<p class="unlock">${MR.CHARACTERS[k].name}은(는) 이미 동료라서 돌파 재료 1개를 얻었어요.</p>`).join('')}
         ${r.levelUpJustUnlocked ? '<p class="unlock">🎉 레벨업 기능이 열렸어요! 「파티 · 레벨업」에서 캐릭터를 강화하세요.</p>' : ''}

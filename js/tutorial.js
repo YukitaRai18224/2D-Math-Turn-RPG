@@ -162,12 +162,24 @@
       return new Promise((resolve) => {
         active = { id, steps: TOURS[id], index: 0, resolve };
         // 화면이 그려진 다음 위치를 잰다
+        const mine = active;
         requestAnimationFrame(() => {
+          // 그 사이 취소되었거나 다른 튜토리얼로 바뀌었으면 아무것도 하지 않는다
+          if (active !== mine) return;
           if (!active.steps.some(usable)) return finish();
           document.getElementById('tutorial-layer').classList.add('on');
           go(0);
         });
       });
+    },
+
+    // 화면을 통째로 바꿀 때(로그아웃 등) 보던 튜토리얼을 본 것으로 치지 않고 닫는다
+    cancel() {
+      if (!active) return;
+      const { resolve } = active;
+      active = null;
+      document.getElementById('tutorial-layer')?.classList.remove('on');
+      resolve();
     },
 
     // 「튜토리얼 다시 보기」: 모든 튜토리얼을 안 본 상태로 되돌린다

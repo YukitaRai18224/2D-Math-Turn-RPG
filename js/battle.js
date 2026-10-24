@@ -9,6 +9,7 @@
 // options.equip: { 캐릭터 key: { weapon: 강화 단계, ... } } (없으면 장비 없음)
 // options.party: 출전하는 캐릭터 key 배열 (없으면 MR.PARTY_ORDER)
 // options.breaks: { 캐릭터 key: 돌파 단계 } (없으면 0)
+// options.gearGrades: { 캐릭터 key: { weapon, hat, top, bottom, shoes: 등급 번호 } } (없으면 모두 Common)
 //   delay(ms)           → Promise
 //   update()            화면 갱신
 //   log(text)           전투 기록
@@ -19,15 +20,16 @@
 (function (MR) {
   const ENEMY_LETTERS = 'ABCD';
 
-  function makeAlly(key, level, equipLevels, breakLevel) {
+  function makeAlly(key, level, equipLevels, breakLevel, gearGrades) {
     const def = MR.CHARACTERS[key];
     const s = MR.statsAtLevel(def.base, level);
-    const e = MR.equipBonus(equipLevels);
+    // 장비가 없으면(장비 기능이 열리기 전) 무기 등급도 적용하지 않는다
+    const e = equipLevels ? MR.equipBonus(equipLevels, gearGrades) : MR.equipBonus(null, null);
     const br = MR.breakthroughBonus(breakLevel);
     const hp = Math.round((s.hp + e.hp) * br.statMult);
     return {
       uid: `a_${key}`, key, side: 'ally', def, name: def.name, level, skillLevel: MR.skillLevelFor(level), ultLevel: MR.ultLevelFor(level), shield: 0,
-      breakLevel: breakLevel || 0, br, critRate: def.crit.rate, critDmg: def.crit.dmg,
+      breakLevel: breakLevel || 0, br, critRate: def.crit.rate + e.crit, critDmg: def.crit.dmg + e.critDmg,
       maxHp: hp, hp, baseAtk: Math.round((s.atk + e.atk) * br.statMult), baseDef: Math.round((s.def + e.def) * br.statMult), spd: s.spd + e.spd,
       maxEnergy: def.maxEnergy, energy: Math.min(def.maxEnergy, Math.round(def.maxEnergy * MR.CONFIG.ENERGY.start) + br.startEnergy),
       buffs: [], alive: true,
@@ -60,7 +62,8 @@
       const equip = options.equip || {};
       const party = options.party || MR.PARTY_ORDER;
       const breaks = options.breaks || {};
-      this.allies = party.map((k) => makeAlly(k, levels[k] || 1, equip[k], breaks[k]));
+      const grades = options.gearGrades || {};
+      this.allies = party.map((k) => makeAlly(k, levels[k] || 1, equip[k], breaks[k], grades[k]));
       this.powerUnit = null; // 고유 스킬을 쓰는 중인 캐릭터 (돌파 '숙련' 효과용)
       this.enemies = stage.enemies.map((k, i) => {
         // 같은 종류가 여러 마리면 그 종류 안에서의 순서로 A, B, C… 를 붙인다

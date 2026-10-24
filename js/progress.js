@@ -16,7 +16,7 @@
     for (const k of MR.PARTY_ORDER) owned[k] = true;
     return {
       cleared: {}, potions: 0, stones: 0, levels, equip, party: [...MR.PARTY_ORDER], difficulty: MR.Quiz.DEFAULT,
-      owned, copies: {}, breaks: {}, limits: {}, gems: { ruby: 0, sapphire: 0, emerald: 0 },
+      owned, copies: {}, breaks: {}, limits: {}, gearGrade: {}, gems: { ruby: 0, sapphire: 0, emerald: 0 },
       stoneBackfill: true, gemBackfill: true,
     };
   }
@@ -51,6 +51,14 @@
       this.state.owned = { ...d.owned, ...((saved && saved.owned) || {}) };
       this.state.copies = { ...((saved && saved.copies) || {}) };
       this.state.breaks = { ...((saved && saved.breaks) || {}) };
+      // 장비 등급 { 캐릭터: { weapon, hat, top, bottom, shoes } }. 예전 저장의 weaponGrade 는 무기 등급으로 옮긴다
+      this.state.gearGrade = {};
+      const savedGear = (saved && saved.gearGrade) || {};
+      const savedWeapon = (saved && saved.weaponGrade) || {};
+      for (const k of MR.CHARACTER_ORDER) {
+        this.state.gearGrade[k] = { ...(savedGear[k] || {}) };
+        if (savedWeapon[k] && !this.state.gearGrade[k].weapon) this.state.gearGrade[k].weapon = savedWeapon[k];
+      }
       // 한계 돌파 횟수: 이미 20·40레벨을 넘긴 캐릭터는 그만큼 한계 돌파를 한 것으로 본다
       this.state.limits = { ...((saved && saved.limits) || {}) };
       for (const k of MR.CHARACTER_ORDER) {
@@ -245,6 +253,30 @@
       return this.state.levels[key] || 1;
     },
 
+    gearGrade(key, slotId) {
+      return (this.state.gearGrade[key] && this.state.gearGrade[key][slotId]) || 0;
+    },
+
+    weaponGrade(key) {
+      return this.gearGrade(key, 'weapon');
+    },
+
+    // 스테이지 클리어 시 장비 획득: 보유 캐릭터 중 무작위 한 명의 장비(slotId), 등급은 무작위.
+    // 지금보다 좋으면 바로 바꿔 끼고(강화 단계 유지), 아니면 분해해서 강화석으로 받는다
+    dropGear(stage, slotId) {
+      const roster = this.roster();
+      const key = roster[Math.floor(Math.random() * roster.length)];
+      const grade = MR.rollGearGrade(stage, slotId);
+      const before = this.gearGrade(key, slotId);
+      if (grade > before) {
+        this.state.gearGrade[key] = { ...(this.state.gearGrade[key] || {}), [slotId]: grade };
+        return { key, slot: slotId, grade, before, upgraded: true, stones: 0 };
+      }
+      const stones = MR.WEAPON_GRADES[grade].salvage;
+      this.state.stones += stones;
+      return { key, slot: slotId, grade, before, upgraded: false, stones };
+    },
+
     // 다음 레벨까지 필요한 물약 수 (최대 레벨이면 null)
     levelUpCost(key) {
       const lv = this.level(key);
@@ -307,6 +339,10 @@
       // 강화석은 장비가 열린 뒤부터 (장비를 여는 1-8 클리어 포함) 받는다
       const stones = this.isEquipUnlocked() ? MR.CONFIG.stoneReward(stage) : 0;
       this.state.stones += stones;
+      // 장비 획득 (장비가 열린 뒤부터): 무기 1개 + 방어구 1개(모자·상의·하의·신발 중 무작위)
+      const drops = this.isEquipUnlocked()
+        ? [this.dropGear(stage, 'weapon'), this.dropGear(stage, MR.ARMOR_SLOTS[Math.floor(Math.random() * MR.ARMOR_SLOTS.length)])]
+        : [];
       // 최초 클리어 보석
       const gems = firstClear ? MR.gemReward(stage) : null;
       if (gems) for (const id in gems) this.state.gems[id] += gems[id];
@@ -330,6 +366,7 @@
         stones,
         firstClear,
         gems,
+        drops,
         newMembers,
         joinCopies,
         levelUpJustUnlocked: !wasUnlocked && this.isLevelUpUnlocked(),
