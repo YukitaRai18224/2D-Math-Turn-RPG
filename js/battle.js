@@ -26,7 +26,7 @@
     const br = MR.breakthroughBonus(breakLevel);
     const hp = Math.round((s.hp + e.hp) * br.statMult);
     return {
-      uid: `a_${key}`, key, side: 'ally', def, name: def.name, level, skillLevel: MR.skillLevelFor(level), shield: 0,
+      uid: `a_${key}`, key, side: 'ally', def, name: def.name, level, skillLevel: MR.skillLevelFor(level), ultLevel: MR.ultLevelFor(level), shield: 0,
       breakLevel: breakLevel || 0, br, critRate: def.crit.rate, critDmg: def.crit.dmg,
       maxHp: hp, hp, baseAtk: Math.round((s.atk + e.atk) * br.statMult), baseDef: Math.round((s.def + e.def) * br.statMult), spd: s.spd + e.spd,
       maxEnergy: def.maxEnergy, energy: Math.min(def.maxEnergy, Math.round(def.maxEnergy * MR.CONFIG.ENERGY.start) + br.startEnergy),
@@ -34,16 +34,18 @@
     };
   }
 
-  function makeEnemy(key, stageLevel, index, letterIndex) {
+  function makeEnemy(key, stageLevel, index, letterIndex, mods) {
     const def = MR.MONSTERS[key];
     // fixedStats 인 몬스터(보스)는 스테이지 레벨로 강화하지 않고 base 값을 그대로 쓴다
     const m = def.fixedStats ? 1 : 1 + MR.CONFIG.ENEMY_SCALE * (stageLevel - 1);
-    const hp = Math.round(def.base.hp * m);
+    // 스테이지별 보정 (mods: { hp, atk, def } 배율). 보스에는 적용하지 않는다
+    const mod = (stat) => (def.fixedStats || !mods || mods[stat] === undefined ? 1 : mods[stat]);
+    const hp = Math.round(def.base.hp * m * mod('hp'));
     return {
       uid: `e_${index}`, key, side: 'enemy', def,
       name: letterIndex >= 0 ? `${def.name} ${ENEMY_LETTERS[letterIndex]}` : def.name,
       level: stageLevel,
-      maxHp: hp, hp, baseAtk: Math.round(def.base.atk * m), baseDef: Math.round(def.base.def * m), spd: def.base.spd,
+      maxHp: hp, hp, baseAtk: Math.round(def.base.atk * m * mod('atk')), baseDef: Math.round(def.base.def * m * mod('def')), spd: def.base.spd,
       buffs: [], alive: true, boss: !!def.boss,
       critRate: (def.crit || MR.CONFIG.ENEMY_CRIT).rate, critDmg: (def.crit || MR.CONFIG.ENEMY_CRIT).dmg,
       mem: {}, // 몬스터가 전투 중 기억할 값 (행동 패턴, 재사용 대기 등)
@@ -64,7 +66,7 @@
         // 같은 종류가 여러 마리면 그 종류 안에서의 순서로 A, B, C… 를 붙인다
         const same = stage.enemies.filter((x) => x === k).length;
         const nth = stage.enemies.slice(0, i).filter((x) => x === k).length;
-        return makeEnemy(k, stage.level, i, same > 1 ? nth : -1);
+        return makeEnemy(k, stage.level, i, same > 1 ? nth : -1, stage.mods);
       });
       this.sp = MR.CONFIG.SP_START;
       this.round = 0;

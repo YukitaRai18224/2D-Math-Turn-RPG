@@ -17,7 +17,7 @@
     DEF_K: 300,
 
     // 레벨업
-    MAX_LEVEL: 40,
+    MAX_LEVEL: 60,
     GROWTH: { hp: 0.08, atk: 0.08, def: 0.06 }, // 레벨당 기본 스탯 대비 증가율
     LEVEL_UNLOCK_STAGE: '1-2',
     levelUpCost(level) {
@@ -51,15 +51,34 @@
     DELAY: { enemyAction: 650, afterAction: 350, quizCorrect: 1000, quizWrong: 1900, skillBanner: 1100 },
   };
 
-  // 캐릭터 레벨에 따른 스킬 레벨: Lv1 → 1, Lv10 → 2, Lv25 → 3, Lv35 → 4
-  MR.CONFIG.SKILL_LEVEL_AT = [1, 10, 25, 35];
-  MR.skillLevelFor = function (charLevel) {
-    return MR.CONFIG.SKILL_LEVEL_AT.filter((lv) => charLevel >= lv).length;
+  // 캐릭터 레벨에 따른 [고유 스킬 레벨, 궁극기 레벨]. 특성은 고유 스킬 레벨을 따른다.
+  MR.CONFIG.SKILL_LEVEL_TABLE = [
+    { at: 1, skill: 1, ult: 1 },
+    { at: 11, skill: 1, ult: 2 },
+    { at: 21, skill: 2, ult: 2 },
+    { at: 31, skill: 2, ult: 3 },
+    { at: 41, skill: 3, ult: 3 },
+    { at: 51, skill: 4, ult: 3 },
+    { at: 60, skill: 4, ult: 4 },
+  ];
+  const skillRow = (charLevel) => {
+    let row = MR.CONFIG.SKILL_LEVEL_TABLE[0];
+    for (const r of MR.CONFIG.SKILL_LEVEL_TABLE) if (charLevel >= r.at) row = r;
+    return row;
   };
-  // 다음 스킬 레벨이 열리는 캐릭터 레벨 (최대면 null)
-  MR.nextSkillLevelAt = function (charLevel) {
-    return MR.CONFIG.SKILL_LEVEL_AT.find((lv) => lv > charLevel) || null;
+  MR.skillLevelFor = (charLevel) => skillRow(charLevel).skill;
+  MR.ultLevelFor = (charLevel) => skillRow(charLevel).ult;
+  // 다음에 스킬·궁극기 레벨이 바뀌는 캐릭터 레벨과 그때의 레벨 (최대면 null)
+  MR.nextSkillChange = function (charLevel) {
+    return MR.CONFIG.SKILL_LEVEL_TABLE.find((r) => r.at > charLevel) || null;
   };
+
+  // 한계 돌파: 레벨 20 → 21, 40 → 41 로 올리려면 경험치 물약과 에메랄드로 한계를 풀어야 한다
+  MR.CONFIG.LIMIT_BREAKS = [
+    { at: 20, potions: 15, emerald: 50 },
+    { at: 40, potions: 40, emerald: 150 },
+  ];
+
   // 설명은 문자열이거나 스킬 레벨을 받는 함수
   MR.describe = function (text, skillLevel) {
     return typeof text === 'function' ? text(skillLevel || 1) : text;

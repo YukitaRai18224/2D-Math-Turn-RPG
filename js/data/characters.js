@@ -1,7 +1,7 @@
 // 플레이어블 캐릭터 정의.
 // skill.run / ult.run 은 (battle, self, quizCorrect) 를 받는다. 대상은 battle.getTarget() 으로 얻는다.
 // trait 훅: damageBonus(b, self, target, ctx) / healBonus(b, self, target) → 추가 비율, onBattleStart(b, self), onTurnStart(b, self)
-// desc 는 문자열이거나 스킬 레벨(1~4)을 받는 함수. self.skillLevel 로 스킬 레벨을 읽는다.
+// desc 는 문자열이거나 레벨(1~4)을 받는 함수. 고유 스킬·특성은 self.skillLevel, 궁극기는 self.ultLevel 을 쓴다.
 // unlockStage 가 있는 캐릭터는 그 스테이지를 클리어하면 동료가 된다.
 (function (MR) {
   // 전체 캐릭터 순서와 처음 출전 파티
@@ -39,7 +39,7 @@
         refund: 0.3,
         desc: (lv) => `선택한 적에게 공격력 ${pct(L(K.ult.mult, lv))}% 피해`,
         run(b, self) {
-          b.dealDamage(self, b.getTarget(), L(this.mult, self.skillLevel));
+          b.dealDamage(self, b.getTarget(), L(this.mult, self.ultLevel));
         },
       },
       trait: {
@@ -83,7 +83,7 @@
         refund: 0.3,
         desc: (lv) => `모든 적에게 공격력 ${pct(L(A.ult.mult, lv))}% 피해`,
         run(b, self) {
-          b.hitAll(self, L(this.mult, self.skillLevel));
+          b.hitAll(self, L(this.mult, self.ultLevel));
         },
       },
       trait: {
@@ -125,7 +125,7 @@
         refund: 0.3,
         desc: (lv) => `모든 아군을 공격력 ${pct(L(P.ult.mult, lv))}%만큼 회복`,
         run(b, self) {
-          for (const a of b.aliveAllies()) b.heal(self, a, L(this.mult, self.skillLevel));
+          for (const a of b.aliveAllies()) b.heal(self, a, L(this.mult, self.ultLevel));
         },
       },
       trait: {
@@ -168,9 +168,9 @@
         refund: 0.3,
         run(b, self) {
           for (const a of b.aliveAllies()) {
-            b.addBuff(a, { id: 'hina_ult', stat: 'atk', pct: L(this.buff, self.skillLevel), turns: 3, label: '공격력' });
+            b.addBuff(a, { id: 'hina_ult', stat: 'atk', pct: L(this.buff, self.ultLevel), turns: 3, label: '공격력' });
           }
-          b.gainSp(L(this.sp, self.skillLevel));
+          b.gainSp(L(this.sp, self.ultLevel));
         },
       },
       trait: {
@@ -227,13 +227,13 @@
         refund: 0.3,
         desc(lv) {
           return `선택한 적에게 공격력 ${pct(MR.CHARACTERS.rafa.ult.mult[lv - 1])}% 피해, 1턴 침묵` +
-            (lv >= 2 ? '. 침묵이 걸리면 이어서 모든 적에게 공격력 150% 피해, 준 피해만큼 자신에게 실드' : ' (스킬 2레벨: 모든 적 공격 + 실드 추가)');
+            (lv >= 2 ? '. 침묵이 걸리면 이어서 모든 적에게 공격력 150% 피해, 준 피해만큼 자신에게 실드' : ' (궁극기 2레벨: 모든 적 공격 + 실드 추가)');
         },
         run(b, self) {
           const t = b.getTarget();
-          b.dealDamage(self, t, this.mult[self.skillLevel - 1]);
+          b.dealDamage(self, t, this.mult[self.ultLevel - 1]);
           b.addSilence(t, 1);
-          if (self.skillLevel >= 2 && t.alive && b.isSilenced(t)) {
+          if (self.ultLevel >= 2 && t.alive && b.isSilenced(t)) {
             const total = b.hitAll(self, 1.5);
             b.addShield(self, total);
           }

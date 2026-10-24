@@ -15,7 +15,7 @@
     for (const k of MR.PARTY_ORDER) owned[k] = true;
     return {
       cleared: {}, potions: 0, stones: 0, levels, equip, party: [...MR.PARTY_ORDER], difficulty: MR.Quiz.DEFAULT,
-      owned, copies: {}, breaks: {}, gems: { ruby: 0, sapphire: 0, emerald: 0 },
+      owned, copies: {}, breaks: {}, limits: {}, gems: { ruby: 0, sapphire: 0, emerald: 0 },
       stoneBackfill: true, gemBackfill: true,
     };
   }
@@ -44,6 +44,12 @@
       this.state.owned = { ...d.owned, ...((saved && saved.owned) || {}) };
       this.state.copies = { ...((saved && saved.copies) || {}) };
       this.state.breaks = { ...((saved && saved.breaks) || {}) };
+      // 한계 돌파 횟수: 이미 20·40레벨을 넘긴 캐릭터는 그만큼 한계 돌파를 한 것으로 본다
+      this.state.limits = { ...((saved && saved.limits) || {}) };
+      for (const k of MR.CHARACTER_ORDER) {
+        const passed = MR.CONFIG.LIMIT_BREAKS.filter((lb) => this.state.levels[k] > lb.at).length;
+        this.state.limits[k] = Math.max(this.state.limits[k] || 0, passed);
+      }
       this.state.gems = { ...d.gems, ...((saved && saved.gems) || {}) };
       const savedEquip = (saved && saved.equip) || {};
       for (const k of MR.CHARACTER_ORDER) this.state.equip[k] = { ...d.equip[k], ...(savedEquip[k] || {}) };
@@ -235,7 +241,33 @@
 
     canLevelUp(key) {
       const cost = this.levelUpCost(key);
-      return this.isLevelUpUnlocked() && cost !== null && this.state.potions >= cost;
+      return this.isLevelUpUnlocked() && cost !== null && !this.needsLimitBreak(key) && this.state.potions >= cost;
+    },
+
+    // ---------- 한계 돌파 (레벨 20 → 21, 40 → 41) ----------
+    // 지금 레벨에서 한계 돌파가 필요하면 그 정보, 아니면 null
+    needsLimitBreak(key) {
+      const lv = this.level(key);
+      const done = this.state.limits[key] || 0;
+      const idx = MR.CONFIG.LIMIT_BREAKS.findIndex((lb) => lb.at === lv);
+      return idx >= 0 && done <= idx ? MR.CONFIG.LIMIT_BREAKS[idx] : null;
+    },
+
+    canLimitBreak(key) {
+      const lb = this.needsLimitBreak(key);
+      return this.isLevelUpUnlocked() && !!lb && this.state.potions >= lb.potions && this.state.gems.emerald >= lb.emerald;
+    },
+
+    // 한계를 풀고 바로 다음 레벨로 올린다
+    limitBreak(key) {
+      if (!this.canLimitBreak(key)) return false;
+      const lb = this.needsLimitBreak(key);
+      this.state.potions -= lb.potions;
+      this.state.gems.emerald -= lb.emerald;
+      this.state.limits[key] = (this.state.limits[key] || 0) + 1;
+      this.state.levels[key] = this.level(key) + 1;
+      this.save();
+      return true;
     },
 
     levelUp(key) {

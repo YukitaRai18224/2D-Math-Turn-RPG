@@ -2,7 +2,7 @@
 //   node tests/sim.js            → 퀴즈 검사 + 스테이지별 승률표
 //   node tests/sim.js 0.7        → 퀴즈 정답률 70% 가정
 //   node tests/sim.js --samples  → 난이도별 예시 문제 출력
-//   node tests/sim.js --chapter=2 → 챕터 2만 (Lv13~20 기준), --chapter=3 은 Lv22~40 기준
+//   node tests/sim.js --chapter=2 → 챕터 2만 (Lv13~20 기준), --chapter=3 은 Lv22~40, --chapter=4 는 Lv42~60 기준
 //   node tests/sim.js --party=kagari,rafa,pricia,hina → 출전 파티 지정
 const fs = require('fs');
 const path = require('path');
@@ -95,7 +95,7 @@ async function simulate(stage, level, runs = 150) {
 (async () => {
   const chapter = process.argv.find((a) => a.startsWith('--chapter='));
   const ch = chapter ? chapter.split('=')[1] : null;
-  const levelsToTest = { 2: [13, 16, 18, 20], 3: [22, 28, 34, 40] }[ch] || [1, 4, 7, 10];
+  const levelsToTest = { 2: [13, 16, 18, 20], 3: [22, 28, 34, 40], 4: [42, 48, 54, 60] }[ch] || [1, 4, 7, 10];
   console.log(`\n정답률 ${accuracy * 100}% 가정 · 파티: ${party.join(', ')} · 승률 (평균 라운드)`);
   console.log('스테이지 ' + levelsToTest.map((l) => `Lv${l}`.padStart(14)).join(''));
   for (const s of MR.STAGES.filter((x) => !ch || x.id.startsWith(`${ch}-`))) {

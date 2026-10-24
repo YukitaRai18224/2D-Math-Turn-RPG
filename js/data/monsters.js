@@ -103,7 +103,7 @@
       boss: true,
       color: '#7b3fd0',
       fixedStats: true, // 스테이지 레벨 강화를 받지 않는 고정 스탯
-      base: { hp: 25000, atk: 3200, def: 350, spd: 100 },
+      base: { hp: 21000, atk: 3000, def: 350, spd: 100 },
       skills: {
         cipher: { name: '암호화 치환', desc: '모든 아군에게 공격력 80% 피해' },
         decrypt: { name: '복호화 엔진', desc: '자신의 최대 체력 15% 회복 (체력 50% 이하일 때, 4턴마다 1회)' },

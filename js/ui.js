@@ -103,6 +103,16 @@
   }
   const stars = (n) => `<span class="stars" title="${n}돌파">${'★'.repeat(n)}${'☆'.repeat(MR.BREAKTHROUGH.max - n)}</span>`;
 
+  // 레벨업으로 고유 스킬·궁극기 레벨이 올랐으면 안내 문구
+  function skillUpNotice(key, lvBefore) {
+    const lv = P().level(key);
+    const name = MR.CHARACTERS[key].name;
+    const parts = [];
+    if (MR.skillLevelFor(lv) > MR.skillLevelFor(lvBefore)) parts.push(`고유 스킬 Lv.${MR.skillLevelFor(lv)}`);
+    if (MR.ultLevelFor(lv) > MR.ultLevelFor(lvBefore)) parts.push(`궁극기 Lv.${MR.ultLevelFor(lv)}`);
+    return parts.length ? `✨ ${name}: ${parts.join(', ')}!` : '';
+  }
+
   // 이름 뒤 조사: 받침이 있으면 '이', 없으면 '가'
   function iga(name) {
     const code = name.charCodeAt(name.length - 1) - 0xac00;
@@ -227,8 +237,13 @@
       let btn;
       if (!unlocked) btn = `<button class="btn" disabled>🔒 ${MR.CONFIG.LEVEL_UNLOCK_STAGE} 클리어 시 해금</button>`;
       else if (cost === null) btn = `<button class="btn" disabled>최대 레벨</button>`;
-      else btn = `<button class="btn primary" data-act="levelup" data-key="${k}" ${P().canLevelUp(k) ? '' : 'disabled'}>레벨업 (🧪 ${cost})</button>`;
+      else if (P().needsLimitBreak(k)) {
+        const lb = P().needsLimitBreak(k);
+        btn = `<button class="btn limit-btn" data-act="limit" data-key="${k}" ${P().canLimitBreak(k) ? '' : 'disabled'}
+                  title="Lv.${lb.at}에서 Lv.${lb.at + 1}로 가려면 한계 돌파가 필요해요">🔓 한계 돌파 (🧪 ${lb.potions} + ${gemIcon('emerald')} ${lb.emerald})</button>`;
+      } else btn = `<button class="btn primary" data-act="levelup" data-key="${k}" ${P().canLevelUp(k) ? '' : 'disabled'}>레벨업 (🧪 ${cost})</button>`;
       const sl = MR.skillLevelFor(lv);
+      const ul = MR.ultLevelFor(lv);
       const bl = P().breakLevel(k);
       const bcost = P().breakCost(k);
       const breakBtn = bcost === null
@@ -239,7 +254,7 @@
           <div class="break-head">${stars(bl)} <b>${bl}돌파</b>${bl ? ` <small>능력치 +${Math.round(bl * MR.BREAKTHROUGH.statPct * 100)}%</small>` : ''} ${breakBtn}</div>
           <ul class="break-effects">${MR.BREAKTHROUGH.effects.map((ef, i) => `<li class="${i < bl ? 'on' : ''}"><b>${i + 1}돌파</b> ${ef.desc}</li>`).join('')}</ul>
         </div>`;
-      const nextAt = MR.nextSkillLevelAt(lv);
+      const nextChange = MR.nextSkillChange(lv);
       const inParty = P().inParty(k);
       const partyFull = P().state.party.length >= MR.PARTY_SIZE;
       const partyBtn = roster.length > MR.PARTY_SIZE
@@ -259,11 +274,11 @@
             ${equipOn ? '<p class="equip-note">파란 숫자는 장비로 오른 능력치예요.</p>' : ''}
             ${btn}
             ${breakBox}
-            <p class="skill-lv">스킬 Lv.${sl}${nextAt ? ` <small>· 캐릭터 Lv.${nextAt}에 스킬 Lv.${sl + 1}</small>` : ' <small>· 최대</small>'}</p>
+            <p class="skill-lv">고유 스킬 Lv.${sl} · 궁극기 Lv.${ul}${nextChange ? ` <small>· 캐릭터 Lv.${nextChange.at}에 ${nextChange.skill}/${nextChange.ult}</small>` : ' <small>· 최대</small>'}</p>
             <dl class="kit">
               <dt>일반 공격</dt><dd>선택한 적에게 공격력 100% 피해. <em>${MR.Quiz.label('addSub', diff)} 퀴즈</em> 정답 시 스킬 포인트 +1</dd>
               <dt>고유 스킬 · ${c.skill.name}</dt><dd>${MR.describe(c.skill.desc, sl)}. <em>${MR.Quiz.label(c.quiz, diff)} 퀴즈</em> ${MR.describe(c.skill.bonusDesc, sl)}</dd>
-              <dt>궁극기 · ${c.ult.name}</dt><dd>${MR.describe(c.ult.desc, sl)}. 에너지 ${c.maxEnergy} 소모, 퀴즈 정답 시 소모량의 ${Math.round(c.ult.refund * 100)}% 회복</dd>
+              <dt>궁극기 · ${c.ult.name}</dt><dd>${MR.describe(c.ult.desc, ul)}. 에너지 ${c.maxEnergy} 소모, 퀴즈 정답 시 소모량의 ${Math.round(c.ult.refund * 100)}% 회복</dd>
               <dt>특성 · ${c.trait.name}</dt><dd>${MR.describe(c.trait.desc, sl)}</dd>
             </dl>
           </div>
@@ -277,12 +292,14 @@
           <h1>파티 · 레벨업</h1>
           <span class="diff-chip">문제 난이도: ${MR.Quiz.difficultyName(diff)}</span>
           <div class="potions">🧪 경험치 물약 <b>${P().state.potions}</b></div>
+          <div class="potions gem-count" title="에메랄드 (한계 돌파에 사용)">${gemIcon('emerald')} 에메랄드 <b>${P().state.gems.emerald}</b></div>
         </header>
         ${notice ? `<p class="notice gift">${notice}</p>` : ''}
         ${unlocked ? '' : `<p class="notice">레벨업 기능은 스테이지 ${MR.CONFIG.LEVEL_UNLOCK_STAGE}을 클리어하면 열립니다. 물약은 미리 모아둘 수 있어요.</p>`}
         <p class="skill-note">돌파: 뽑기에서 겹친 캐릭터는 돌파 재료가 돼요. 1~4돌파는 재료 1개, 5~6돌파는 재료 2개가 필요하고, 돌파할 때마다 능력치 +${Math.round(MR.BREAKTHROUGH.statPct * 100)}%와 추가 효과를 얻어요.</p>
         ${roster.length > MR.PARTY_SIZE ? `<p class="party-count">출전 멤버 <b>${P().state.party.length} / ${MR.PARTY_SIZE}</b> · 초상화 아래 버튼으로 출전 멤버를 바꿀 수 있어요.</p>` : ''}
-        <p class="skill-note">스킬 레벨은 캐릭터 레벨 ${MR.CONFIG.SKILL_LEVEL_AT.join(' · ')}에서 1 · 2 · 3 · 4로 오르고, 스킬 레벨이 오르면 고유 스킬·궁극기·특성이 강해져요.</p>
+        <p class="skill-note">고유 스킬/궁극기 레벨: ${MR.CONFIG.SKILL_LEVEL_TABLE.map((r) => `Lv.${r.at} ${r.skill}/${r.ult}`).join(' → ')}. 특성은 고유 스킬 레벨을 따라요.
+          레벨 ${MR.CONFIG.LIMIT_BREAKS.map((lb) => `${lb.at}→${lb.at + 1}`).join(', ')}은 경험치 물약과 에메랄드로 <b>한계 돌파</b>를 해야 올라가요.</p>
         <div class="char-grid">${cards}</div>
       </div>`;
   }
@@ -505,7 +522,7 @@
             ${bar('en', a.energy, a.maxEnergy, `⚡ ${a.energy} / ${a.maxEnergy}`)}
             <div class="chips">${a.shield ? `<span class="chip shield">🛡 실드 ${a.shield}</span>` : ''}${buffChips(a)}</div>
             <button class="ult-btn ${full && !silenced ? 'ready' : ''}" data-act="ult" data-uid="${a.uid}"
-                    ${b.canUlt(a) && !queued ? '' : 'disabled'} title="${MR.describe(a.def.ult.desc, a.skillLevel)}">
+                    ${b.canUlt(a) && !queued ? '' : 'disabled'} title="${MR.describe(a.def.ult.desc, a.ultLevel)}">
               ${silenced ? '🔇 침묵 중' : queued ? '예약됨' : `궁극기 · ${a.def.ult.name}`}
             </button>
           </div>
@@ -839,10 +856,15 @@
         break;
       case 'levelup': {
         const key = el.dataset.key;
-        const before = MR.skillLevelFor(P().level(key));
-        if (P().levelUp(key)) {
-          const after = MR.skillLevelFor(P().level(key));
-          showParty(after > before ? `✨ ${MR.CHARACTERS[key].name}의 스킬 레벨이 ${after}${after === 3 ? '으로' : '로'} 올랐어요!` : '');
+        const lvBefore = P().level(key);
+        if (P().levelUp(key)) showParty(skillUpNotice(key, lvBefore));
+        break;
+      }
+      case 'limit': {
+        const key = el.dataset.key;
+        const lvBefore = P().level(key);
+        if (P().limitBreak(key)) {
+          showParty(`🔓 ${MR.CHARACTERS[key].name} 한계 돌파! 이제 Lv.${P().level(key)}부터 다시 레벨업할 수 있어요. ${skillUpNotice(key, lvBefore)}`);
         }
         break;
       }
